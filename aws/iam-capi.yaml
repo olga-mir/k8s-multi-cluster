@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: iam definitions needed for Cluster API
+Resources:
+  CapiGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: CapiGroup
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+        - arn:aws:iam::<ACCOUNT_ID_TODO>:policy/control-plane.cluster-api-provider-aws.sigs.k8s.io
+        - arn:aws:iam::<ACCOUNT_ID_TODO>:policy/controllers.cluster-api-provider-aws.sigs.k8s.io
+        - arn:aws:iam::<ACCOUNT_ID_TODO>:policy/nodes.cluster-api-provider-aws.sigs.k8s.io
+        - arn:aws:iam::<ACCOUNT_ID_TODO>:policy/controllers-eks.cluster-api-provider-aws.sigs.k8s.io
+  CapiUser:
+    Type: AWS::IAM::User
+    DependsOn: CapiGroup
+    Properties:
+      Groups:
+        - CapiGroup
+      UserName: CapiUser
