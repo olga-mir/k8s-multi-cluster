@@ -1,11 +1,11 @@
 # Detailed workflow
 
-### Create IAM resources
+## Create IAM resources
 
 Create required IAM resources: [./aws](aws/REAADME.md)
 Note that this step is not required if following official start guide, more on why this is implemented differently below.
 
-### Temporary management cluster
+## Temporary management cluster
 
 tl;dr - run [script](../scripts/temp-bootstrap-cluster.yaml)
 
@@ -26,7 +26,7 @@ kind create cluster --config bootstrap.yaml # assuming above config is saved in 
 clusterctl init --infrastructure aws
 ```
 
-### Generate config for permanent management cluster
+## Generate config for permanent management cluster
 
 Nest step is generating and applying a "CAPI" cluster which will be the permanent management cluster.
 
@@ -63,7 +63,7 @@ region = ...
 ```
 and then `export AWS_B64ENCODED_CREDENTIALS=$(cat creds.txt | base64 -)`
 
-This base64 encoded value will be stored in 
+This base64 encoded value will be stored in k8s secret `capa-manager-bootstrap-credentials` in `capa-system` namespace.
 
 Generate cluster config:
 ```
@@ -79,3 +79,33 @@ spec:
     vpc:
       availabilityZoneUsageLimit: 1
 ```
+
+Apply mgmt.yaml and validate:
+```
+k get clusters
+k get kubeadmcontrolplane
+```
+Control plane will not be available until CNI is installed https://cluster-api.sigs.k8s.io/user/quick-start.html
+```
+clusterctl get kubeconfig mgmt > target-mgmt.kubeconfig
+k --kubeconfig=./target-mgmt.kubeconfig -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml
+```
+
+CAPI cluster should be ready now:
+```
+$ k get cluster
+NAME   PHASE         AGE     VERSION
+mgmt   Provisioned   9m51s
+$ k --kubeconfig=./target-mgmt.kubeconfig get nodes
+NAME                                              STATUS   ROLES                  AGE     VERSION
+ip-10-0-177-108.ap-southeast-2.compute.internal   Ready    <none>                 2m11s   v1.21.11
+ip-10-0-239-128.ap-southeast-2.compute.internal   Ready    control-plane,master   3m23s   v1.21.11
+```
+
+## Pivot
+```
+export KUBECONFIG=./target-mgmt.kubeconfig  # from here on commands run on CAPI mgmt cluster (which is not yet a management cluster)
+clusterctl init --infrastructure aws
+```
+
+
