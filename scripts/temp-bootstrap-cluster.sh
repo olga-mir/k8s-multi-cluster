@@ -76,4 +76,5 @@ echo \"No resources found in default namespace\" expected
 
 clusterctl move --to-kubeconfig=./target-mgmt.kubeconfig
 
-kind delete cluster
+# kind delete cluster
+# and now what? how do you manage the permanent management cluster? keep it now for simplicity
