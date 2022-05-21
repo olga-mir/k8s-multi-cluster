@@ -2,12 +2,12 @@
 
 ## Create IAM resources
 
-Create required IAM resources: [./aws](aws/REAADME.md)
+Create required IAM resources: [./aws](aws/README.md)
 Note that this step is not required if following official start guide, more on why this is implemented differently below.
 
 ## Temporary management cluster
 
-tl;dr - run [script](../scripts/temp-bootstrap-cluster.yaml)
+tl;dr - run [script](../scripts/deploy-bootstrap-cluster.sh)
 
 We'll use `kind` as a shortlived temp cluster which will be used to spin up permanent management cluster on AWS. This approach is known as "bootstrap and pivot"
 
@@ -32,7 +32,7 @@ Nest step is generating and applying a "CAPI" cluster which will be the permanen
 
 There is a few environment variables that need to be configured before generating manifest.
 The list can be obtained by running `clusterctl generate cluster --list-variables aws`.
-Store it in a separate file, provide your values  and source it.
+Store it in a separate file, provide your values and source it.
 
 ```
 export AWS_CONTROL_PLANE_MACHINE_TYPE=...
