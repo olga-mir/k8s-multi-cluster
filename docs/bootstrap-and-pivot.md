@@ -32,7 +32,7 @@ Nest step is generating and applying a "CAPI" cluster which will be the permanen
 
 There is a few environment variables that need to be configured before generating manifest.
 The list can be obtained by running `clusterctl generate cluster --list-variables aws`.
-Store it in a separate file, provide your values  and source it.
+Store it in a separate file, provide your values and source it.
 
 ```
 export AWS_CONTROL_PLANE_MACHINE_TYPE=...
