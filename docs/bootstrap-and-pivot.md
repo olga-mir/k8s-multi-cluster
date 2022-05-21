@@ -2,12 +2,12 @@
 
 ## Create IAM resources
 
-Create required IAM resources: [./aws](aws/REAADME.md)
+Create required IAM resources: [./aws](aws/README.md)
 Note that this step is not required if following official start guide, more on why this is implemented differently below.
 
 ## Temporary management cluster
 
-tl;dr - run [script](../scripts/temp-bootstrap-cluster.yaml)
+tl;dr - run [script](../scripts/deploy-bootstrap-cluster.sh)
 
 We'll use `kind` as a shortlived temp cluster which will be used to spin up permanent management cluster on AWS. This approach is known as "bootstrap and pivot"
 
