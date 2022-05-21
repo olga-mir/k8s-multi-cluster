@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -eou pipefail
+
 workdir=$(pwd)
 
 # For more details please check docs/bootstrap-and-pivot.md doc in this repo
@@ -30,36 +31,33 @@ if [ -z "$AWS_CONTROL_PLANE_MACHINE_TYPE" ] || \
 fi
 
 set +e
-set -x
 while ! kubectl get clusters; do
   sleep 15
 done
 set -e
-set +x
 echo
 echo \"No resources found in default namespace\" is expected
 echo
-
-echo Waiting for all CAPI services to be ready
-
-# wait WA until 1.23: https://github.com/kubernetes/kubernetes/issues/80828#issuecomment-979054581
-while [[ -z $(kubectl get service capa-webhook-service -n capa-system -o jsonpath="{.status.loadBalancer}" 2>/dev/null)  && \
-         -z $(kubectl get service capi-kubeadm-bootstrap-webhook-service -n capi-kubeadm-bootstrap-system -o jsonpath="{.status.loadBalancer}" 2>/dev/null) && \
-         -z $(kubectl get service capi-kubeadm-control-plane-webhook-service -n capi-kubeadm-control-plane-system -o jsonpath="{.status.loadBalancer}" 2>/dev/null) && \
-         -z $(kubectl get service capi-webhook-service -n capi-system -o jsonpath="{.status.loadBalancer}" 2>/dev/null) ]]; do
-  sleep 5
-done
 
 # TODO. automate mgmt.yaml file - currently not committed because AZs settings are manually hardcoded
 # deploy permanent mgmt cluster object in `default` ns in temp cluster
 # clusterctl generate cluster mgmt > mgmt.yaml
 
-kubectl apply -f $workdir/mgmt.yaml
+retries=5
+set +e
+kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
+while [ $? -ne 0 ]; do
+  echo Failed to apply cluster config, re-trying
+  sleep 10
+  [[ retrise -eq 0 ]] && echo "Failed to apply clsuter config, aborting." && exit 1
+  ((retries--))
+  kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
+done
+set -e
 
-# while ! kubectl wait kubeadmcontrolplane mgmt-control-plane --for jsonpath='{.status.initialized}'=true --timeout=30s; do
-echo Wait for cluster infrustracture to become ready. This can take couple minutes
+echo Wait for cluster infrustracture to become ready. This can take a couple of minutes
 while ! kubectl wait cluster mgmt --for jsonpath='{.status.infrastructureReady}'=true --timeout=30s; do
-  echo $(date +%F_%H_%M_%S) waiting for infra to become ready
+  echo $(date '+%F %H:%M:%S') waiting for infra to become ready
   sleep 30 # initialy status doesn't exist so wait returns immediatelly
 done
 
