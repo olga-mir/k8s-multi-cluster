@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eou pipefail
+set -eoux pipefail
 
 workdir=$(pwd)
 
@@ -43,6 +43,8 @@ echo
 # deploy permanent mgmt cluster object in `default` ns in temp cluster
 # clusterctl generate cluster mgmt > mgmt.yaml
 
+# applying cluster manifests immediatelly will fail because components webhooks are not yet ready to serve traffic
+# it is easier to retry applying rather than checking on each component individually
 retries=5
 set +e
 kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
@@ -55,7 +57,8 @@ while [ $? -ne 0 ]; do
 done
 set -e
 
-echo Wait for cluster infrustracture to become ready. This can take a couple of minutes
+echo Wait for cluster infrastructure to become ready. This can take some time.
+sleep 120
 while ! kubectl wait cluster mgmt --for jsonpath='{.status.infrastructureReady}'=true --timeout=30s; do
   echo $(date '+%F %H:%M:%S') waiting for infra to become ready
   sleep 30 # initialy status doesn't exist so wait returns immediatelly
@@ -64,10 +67,10 @@ done
 sleep 15 # wait for `k get secret mgmt-kubeconfig`
 clusterctl get kubeconfig mgmt > $workdir/target-mgmt.kubeconfig
 
-# backup previous kubeconfig - as necessary
-# cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
-
-KUBECONFIG=$HOME/.kube/config:$workdir/kind.kubeconfig:$workdir/target-mgmt.kubeconfig kubectl config view --raw=true --merge=true > $HOME/.kube/config
+# backup previous kubeconfig, this is also needed for merge: can't read and redirect to the same place in one command
+temp_kubeconfig=$HOME/.kube/config-$(date +%F_%H_%M_%S)
+cp $HOME/.kube/config $temp_kubeconfig
+KUBECONFIG=$workdir/target-mgmt.kubeconfig:$temp_kubeconfig kubectl config view --raw=true --merge=true > $HOME/.kube/config
 
 ##############
 ############## ------ on AWS mgmt cluster ------
@@ -75,6 +78,7 @@ KUBECONFIG=$HOME/.kube/config:$workdir/kind.kubeconfig:$workdir/target-mgmt.kube
 
 kubectl config use-context mgmt-admin@mgmt
 
+sleep 30  # something is still not ready, wait
 kubectl apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml
 
 clusterctl init --infrastructure aws
