@@ -17,7 +17,7 @@ set -eou pipefail
 
 
 flux bootstrap git \
-  --url=ssh://git@github.com/olga-mir/k8s-flux-capi \
+  --url=ssh://git@github.com/olga-mir/k8s-multi-cluster \
   --branch=feature/flux-capi-dev \
   --private-key-file=$HOME/.ssh/flux-github-key \
   --path=clusters/mgmt
