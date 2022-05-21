@@ -49,7 +49,7 @@ kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
 while [ $? -ne 0 ]; do
   echo Failed to apply cluster config, re-trying
   sleep 10
-  [[ retrise -eq 0 ]] && echo "Failed to apply clsuter config, aborting." && exit 1
+  [[ $retries -eq 0 ]] && echo "Failed to apply clsuter config, aborting." && exit 1
   ((retries--))
   kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
 done
