@@ -121,4 +121,5 @@ spec:
         nodeRegistration:
           kubeletExtraArgs:
             cloud-provider: aws
+            max-pods: '16'
           name: '{{ ds.meta_data.local_hostname }}'
