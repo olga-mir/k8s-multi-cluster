@@ -74,8 +74,19 @@ clusterctl get kubeconfig mgmt > $workdir/target-mgmt.kubeconfig
 
 ############## ------ on AWS mgmt cluster ------
 
-sleep 45  # something is still not ready, wait
-kubectl --kubeconfig $workdir/target-mgmt.kubeconfig apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml
+
+retries=5
+set +e
+kubectl --kubeconfig $workdir/target-mgmt.kubeconfig apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml 2>/dev/null
+while [ $? -ne 0 ]; do
+  echo Failed to install calico, re-trying
+  sleep 30
+  # if retries are exhausted, there might be a genuine error, run the command one more time without swallowing the  error
+  [[ $retries -eq 0 ]] && kubectl --kubeconfig $workdir/target-mgmt.kubeconfig apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml && echo "Failed to install calico, aborting." && exit 1
+  ((retries--))
+  kubectl --kubeconfig $workdir/target-mgmt.kubeconfig apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml 2>/dev/null
+done
+set -e
 
 clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt
 
