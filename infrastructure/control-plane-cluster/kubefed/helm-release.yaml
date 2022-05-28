@@ -4,7 +4,7 @@ metadata:
   name: kubefed
   namespace: kube-federation-system
 spec:
-  interval: 5m
+  interval: 2m
   chart:
     spec:
       chart: kubefed
