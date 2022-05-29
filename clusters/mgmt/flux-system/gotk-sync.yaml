@@ -8,7 +8,7 @@ metadata:
 spec:
   interval: 1m0s
   ref:
-    branch: feature/flux-capi-dev
+    branch: feature/cluster-resource-set
   secretRef:
     name: flux-system
   url: ssh://git@github.com/olga-mir/k8s-multi-cluster
