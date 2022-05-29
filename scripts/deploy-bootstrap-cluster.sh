@@ -3,9 +3,9 @@ set -eou pipefail
 
 # For more details please check docs/bootstrap-and-pivot.md doc in this repo
 
-
 # Setup config environment variables, and AWS_B64ENCODED_CREDENTIALS
 # run `clusterctl generate cluster --list-variables aws` to get the list of variables
+# values except creds will be stored in init-config files, for now check they are set, remove after testing
 if [ -z "$AWS_CONTROL_PLANE_MACHINE_TYPE" ] || \
    [ -z "$AWS_NODE_MACHINE_TYPE" ] || \
    [ -z "$AWS_SSH_KEY_NAME" ] || \
@@ -29,7 +29,7 @@ EOF
 
 kind create cluster --config bootstrap.yaml
 
-clusterctl init --infrastructure aws
+clusterctl init --infrastructure aws --config $workdir/init-config-mgmt.yaml
 
 set +e
 while ! kubectl get clusters; do
@@ -40,7 +40,6 @@ echo
 echo \"No resources found in default namespace\" is expected
 echo
 
-# TODO. automate mgmt.yaml file - currently not committed because AZs settings are manually hardcoded
 # deploy permanent mgmt cluster object in `default` ns in temp cluster
 # clusterctl generate cluster mgmt > mgmt.yaml
 
@@ -52,12 +51,17 @@ kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
 while [ $? -ne 0 ]; do
   echo Failed to apply cluster config, re-trying
   sleep 15
-  # if retries are exhausted, there might be a genuine error, run the command one more time without swallowing the  error
-  [[ $retries -eq 0 ]] && kubectl apply -f $workdir/mgmt.yaml && echo "Failed to apply cluster config, aborting." && exit 1
+  if [[ $retries -eq 0 ]]; then
+    # if retries are exhausted, there might be a genuine error, run the command one more time without swallowing the error
+    kubectl apply -f $workdir/mgmt.yaml
+    echo "Failed to apply cluster config, aborting."
+    exit 1
+  fi
   ((retries--))
   kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
 done
 set -e
+kubectl apply -f $workdir/cm-calico-v3.21.yaml
 
 echo Wait for cluster infrastructure to become ready. This can take some time.
 sleep 120
@@ -74,21 +78,7 @@ clusterctl get kubeconfig mgmt > $workdir/target-mgmt.kubeconfig
 
 ############## ------ on AWS mgmt cluster ------
 
-
-retries=5
-set +e
-kubectl --kubeconfig $workdir/target-mgmt.kubeconfig apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml 2>/dev/null
-while [ $? -ne 0 ]; do
-  echo Failed to install calico, re-trying
-  sleep 30
-  # if retries are exhausted, there might be a genuine error, run the command one more time without swallowing the  error
-  [[ $retries -eq 0 ]] && kubectl --kubeconfig $workdir/target-mgmt.kubeconfig apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml && echo "Failed to install calico, aborting." && exit 1
-  ((retries--))
-  kubectl --kubeconfig $workdir/target-mgmt.kubeconfig apply -f https://docs.projectcalico.org/v3.21/manifests/calico.yaml 2>/dev/null
-done
-set -e
-
-clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt
+clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt --config $workdir/init-config-workload.yaml
 
 set +e
 while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig get clusters; do
