@@ -29,7 +29,7 @@ EOF
 
 kind create cluster --config bootstrap.yaml
 
-clusterctl init --infrastructure aws --config $workdir/init-config-mgmt.yaml
+clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
 
 set +e
 while ! kubectl get clusters; do
@@ -41,27 +41,28 @@ echo \"No resources found in default namespace\" is expected
 echo
 
 # deploy permanent mgmt cluster object in `default` ns in temp cluster
-# clusterctl generate cluster mgmt > mgmt.yaml
+# use manifests that were created before with `clusterctl generate cluster mgmt`
+# and committed to the repo
 
 # applying cluster manifests immediatelly will fail because components webhooks are not yet ready to serve traffic
 # it is easier to retry applying rather than checking on each component individually
 retries=8
 set +e
-kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
+kubectl apply -f $workdir/mgmt-cluster/cluster.yaml 2>/dev/null
 while [ $? -ne 0 ]; do
   echo Failed to apply cluster config, re-trying
   sleep 15
   if [[ $retries -eq 0 ]]; then
     # if retries are exhausted, there might be a genuine error, run the command one more time without swallowing the error
-    kubectl apply -f $workdir/mgmt.yaml
+    kubectl apply -f $workdir/mgmt-cluster/cluster.yaml
     echo "Failed to apply cluster config, aborting."
     exit 1
   fi
   ((retries--))
-  kubectl apply -f $workdir/mgmt.yaml 2>/dev/null
+  kubectl apply -f $workdir/mgmt-cluster/cluster.yaml 2>/dev/null
 done
 set -e
-kubectl apply -f $workdir/cm-calico-v3.21.yaml
+kubectl apply -f $workdir/mgmt-cluster/cm-calico-v3.21.yaml
 
 echo Wait for cluster infrastructure to become ready. This can take some time.
 sleep 120
@@ -78,7 +79,15 @@ clusterctl get kubeconfig mgmt > $workdir/target-mgmt.kubeconfig
 
 ############## ------ on AWS mgmt cluster ------
 
-clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt --config $workdir/init-config-workload.yaml
+sleep 240
+# Need to wait until CNI has been installed
+# % k get clusterresourceset crs-calico -o yaml | yq e '.status' -
+# conditions:
+#   - lastTransitionTime: "2022-05-29T11:48:08Z"
+#     status: "True"
+#     type: ResourcesApplied
+
+clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt --config $workdir/mgmt-cluster/init-config-workload.yaml
 
 set +e
 while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig get clusters; do
