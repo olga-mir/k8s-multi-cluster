@@ -2570,3 +2570,4 @@ kind: ConfigMap
 metadata:
   creationTimestamp: null
   name: calico-cni
+  namespace: cluster-dev
