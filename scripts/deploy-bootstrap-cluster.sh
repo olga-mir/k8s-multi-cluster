@@ -79,6 +79,14 @@ clusterctl get kubeconfig mgmt > $workdir/target-mgmt.kubeconfig
 
 ############## ------ on AWS mgmt cluster ------
 
+sleep 240
+# Need to wait until CNI has been installed
+# % k get clusterresourceset crs-calico -o yaml | yq e '.status' -
+# conditions:
+#   - lastTransitionTime: "2022-05-29T11:48:08Z"
+#     status: "True"
+#     type: ResourcesApplied
+
 clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt --config $workdir/mgmt-cluster/init-config-workload.yaml
 
 set +e
