@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - cluster.yaml
+  - cm-calico-v3.21.yaml

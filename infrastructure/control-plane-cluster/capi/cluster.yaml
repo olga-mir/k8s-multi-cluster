@@ -3,6 +3,9 @@ kind: Cluster
 metadata:
   name: dev
   namespace: cluster-dev
+  labels:
+    cluster.x-k8s.io/cluster-name: cluster-dev
+    cni: calico
 spec:
   clusterNetwork:
     pods:
@@ -123,3 +126,16 @@ spec:
             cloud-provider: aws
             max-pods: '16'
           name: '{{ ds.meta_data.local_hostname }}'
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+ name: crs-calico
+ namespace: cluster-dev
+spec:
+ strategy: "ApplyOnce"
+ clusterSelector:
+   matchLabels:
+     cni: calico
+ resources:
+   - name: calico-cni
+     kind: ConfigMap
