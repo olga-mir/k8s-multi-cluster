@@ -1,0 +1,24 @@
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: team-1
+  namespace: apps
+spec:
+  interval: 1m
+  url:  ssh://git@github.com/olga-mir/my-app
+  ref:
+    branch: team-1
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: team-1
+  namespace: apps
+spec:
+  serviceAccountName: team-1
+  interval: 5m
+  sourceRef:
+    kind: GitRepository
+    name: team-1
+  prune: true
+  validation: client
