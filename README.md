@@ -1,17 +1,24 @@
-# Flux and Cluster API
+# Multi Cluster Patterns
 
-This repo documents my journey into CAPI+Flux land, mostly following getting-started guides with some modifications. The idea is to collect commands from different guides in scripts that will make it easier to spinup the playground for experiments (and help remember "what the heck did I do last week to make it work?").
+This repository explores multi cluster technologies and is primarily based on [Cluster API](https://github.com/kubernetes-sigs/cluster-api) for declarative cluster management and [FLuxCD](https://fluxcd.io/) for GitOps workflows.
 
-Deviations from the quick starts are improvements around least privilege principle, preference to "as Code" approach opposed to cli commands, modifications to use less resources than the defaults, etc.
+Other projects used:
+* [Kong OSS k8s ingress controller](https://docs.konghq.com/kubernetes-ingress-controller/)
+* [Kubernetes Cluster Federation](https://github.com/kubernetes-sigs/kubefed/)
+
+This is not a complete production-ready pattern rather iterative approach to get from distinct quick-start guides to a state where multiple technologies are integrated together to achieve powerful multi-cluster workflows and patterns.
+
+Deviations from the quick starts are improvements around least privilege principle, preference to "as Code" approach opposed to cli commands, cost-optimization, etc.
 
 Flux repositories structure follows ["Repo per team"](https://fluxcd.io/docs/guides/repository-structure/#repo-per-team) approach.
-Cluster API deployment follow["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`.
+Cluster API deployment follows ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`. At the moment it is not entirely clear to me how to manage the permanent management cluster.
 
 My previous experiment with permanent management cluster bootstraped by kOps with workload cluster applied by FluxCD: https://github.com/olga-mir/k8s/releases/tag/v0.0.1
 
 # Installation
 
 Detailed process for installing a permanent management cluster and a workload cluster can be found in [docs/bootstrap-and-pivot.md](docs/bootstrap-and-pivot.md)
+Script: [deploy-bootstrap-cluster.sh](./scripts/deploy-bootstrap-cluster.sh), followed by [install-flux.sh](./scripts/install-flux.sh)
 
 # Cleanup
 
