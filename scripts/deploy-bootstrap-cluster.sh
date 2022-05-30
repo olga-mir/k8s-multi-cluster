@@ -62,31 +62,20 @@ while [ $? -ne 0 ]; do
   kubectl apply -f $workdir/mgmt-cluster/cluster.yaml 2>/dev/null
 done
 set -e
+
 kubectl apply -f $workdir/mgmt-cluster/cm-calico-v3.21.yaml
-
-echo Wait for cluster infrastructure to become ready. This can take some time.
-sleep 120
-while ! kubectl wait cluster mgmt --for jsonpath='{.status.infrastructureReady}'=true --timeout=30s; do
-  echo $(date '+%F %H:%M:%S') waiting for infra to become ready
-  sleep 30 # initialy status doesn't exist so wait returns immediatelly
-done
-
-sleep 15 # wait for `k get secret mgmt-kubeconfig`
-clusterctl get kubeconfig mgmt > $workdir/target-mgmt.kubeconfig
-
-# check out ./scripts/merge-kubeconfig.sh to merge all kubeconfigs into default ~/.kube/config file (preserving already existing configs)
-
 
 ############## ------ on AWS mgmt cluster ------
 
 sleep 240
-# Need to wait until CNI has been installed
-# % k get clusterresourceset crs-calico -o yaml | yq e '.status' -
-# conditions:
-#   - lastTransitionTime: "2022-05-29T11:48:08Z"
-#     status: "True"
-#     type: ResourcesApplied
 
+while ! kubectl wait --for condition=ResourcesApplied=True clusterresourceset crs-calico --timeout=30s ; do
+  echo $(date '+%F %H:%M:%S') waiting for management cluster to become ready
+  sleep 30
+done
+
+# kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
+clusterctl get kubeconfig mgmt > $workdir/target-mgmt.kubeconfig
 clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt --config $workdir/mgmt-cluster/init-config-workload.yaml
 
 set +e
