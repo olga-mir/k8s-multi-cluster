@@ -4,8 +4,6 @@ metadata:
   name: tenants
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: kyverno-policies
   interval: 5m
   serviceAccountName: kustomize-controller
   sourceRef:
