@@ -18,7 +18,7 @@ My previous experiment with permanent management cluster bootstraped by kOps wit
 # Installation
 
 Detailed process for installing a permanent management cluster and a workload cluster can be found in [docs/bootstrap-and-pivot.md](docs/bootstrap-and-pivot.md)
-Script: [deploy-bootstrap-cluster.sh](./scripts/deploy-bootstrap-cluster.sh), followed by [install-flux.sh](./scripts/install-flux.sh)
+Script: [deploy.sh](./scripts/deploy.sh) - installs the full stack kind -> AWS mgmt cluster -> dev cluster, including relevant components: flux, kubefed, kong, capi.
 
 # Cleanup
 
