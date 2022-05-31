@@ -3,15 +3,11 @@ set -eou pipefail
 
 # For more details please check docs/bootstrap-and-pivot.md doc in this repo
 
-# Setup config environment variables, and AWS_B64ENCODED_CREDENTIALS
-# run `clusterctl generate cluster --list-variables aws` to get the list of variables
-# values except creds will be stored in init-config files, for now check they are set, remove after testing
-if [ -z "$AWS_CONTROL_PLANE_MACHINE_TYPE" ] || \
-   [ -z "$AWS_NODE_MACHINE_TYPE" ] || \
-   [ -z "$AWS_SSH_KEY_NAME" ] || \
-   [ -z "$KUBERNETES_VERSION" ] || \
-   [ -z "$AWS_B64ENCODED_CREDENTIALS" ]; then
-  exit 1
+# Provide env vars and other settings in $workdir/mgmt-cluster/init-config-mgmt.yaml file
+# (note that the content of the file is not validated)
+# AWS_B64ENCODED_CREDENTIALS currently accepted only from env var only.
+if [ -z "$AWS_B64ENCODED_CREDENTIALS" ]; then
+  echo "Error AWS_B64ENCODED_CREDENTIALS is not provided" && exit 1
 fi
 
 set -x
@@ -31,14 +27,10 @@ kind create cluster --config bootstrap.yaml
 
 clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
 
+echo $(date '+%F %H:%M:%S')
 set +e
-while ! kubectl get clusters; do
-  sleep 15
-done
+while ! kubectl wait crd clusters.cluster.x-k8s.io --for=condition=Established --timeout=5s; do sleep 15; done
 set -e
-echo
-echo \"No resources found in default namespace\" is expected
-echo
 
 # deploy permanent mgmt cluster object in `default` ns in temp cluster
 # use manifests that were created before with `clusterctl generate cluster mgmt`
@@ -66,10 +58,12 @@ set -e
 
 kubectl apply -f $workdir/mgmt-cluster/cm-calico-v3.21.yaml
 
+echo $(date '+%F %H:%M:%S')
 sleep 90
 while ! kubectl wait --for condition=ResourcesApplied=True clusterresourceset crs-calico --timeout=30s ; do
   echo $(date '+%F %H:%M:%S') waiting for management cluster to become ready
 done
+
 
 ############## ------ on AWS mgmt cluster ------
 
@@ -88,11 +82,15 @@ done
 set -e
 echo \"No resources found in default namespace\" expected
 
-# doesn't seem right: clusterctl move --kubeconfig=$workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt --to-kubeconfig=./target-mgmt.kubeconfig
 clusterctl move --to-kubeconfig=./target-mgmt.kubeconfig
 
+# Now `mgmt` cluster lives on the AWS permanent management cluster:
+# % k get clusters -A
+# NAMESPACE     NAME   PHASE         AGE   VERSION
+# cluster-dev   dev    Provisioned   50m
+# default       mgmt   Provisioned   56m
+# However for this setup, still keep the `kind` cluster because it will be useful to tear down the mgmt cluster.
 # kind delete cluster
-# and now what? how do you manage the permanent management cluster? keep it now for simplicity
 
 
 ############## ------ FluxCD on AWS mgmt cluster ------
