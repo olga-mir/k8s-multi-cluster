@@ -11,7 +11,7 @@ This is not a complete production-ready pattern rather iterative approach to get
 Deviations from the quick starts are improvements around least privilege principle, preference to "as Code" approach opposed to cli commands, cost-optimization, etc.
 
 Flux repositories structure follows ["Repo per team"](https://fluxcd.io/docs/guides/repository-structure/#repo-per-team) approach.
-Cluster API deployment follows ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`. At the moment it is not entirely clear to me how to manage the permanent management cluster.
+Cluster API deployment follows ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`.
 
 My previous experiment with permanent management cluster bootstraped by kOps with workload cluster applied by FluxCD: https://github.com/olga-mir/k8s/releases/tag/v0.0.1
 

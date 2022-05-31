@@ -1,10 +1,10 @@
 #!/bin/bash
+set -x
+workdir=$(pwd)
 
-# Helper script to clean up turtles-all-the-way-down clusters.
 # This script assumes it runs on the same setup as deployed by other scripts in this repo.
 # The following contexts are expected to be available in kubeconfig (use ./scripts/merge-kubeconfig.sh) to merge all in one
 
-# this script assumes these contexts are available and the management chain is kind -> mgmt -> dev.
 # % k config get-contexts
 # CURRENT   NAME              CLUSTER     AUTHINFO     NAMESPACE
 #           dev-admin@dev     dev         dev-admin
@@ -12,31 +12,25 @@
 # *         mgmt-admin@mgmt   mgmt        mgmt-admin
 
 if [[ -z "$ACCEPT_CLEANUP_T_AND_C" ]]; then
-  echo "Please make sure you understand what is being deleted by this script."
-  echo "Set ACCEPT_CLEANUP_T_AND_C to any non zero value and re-run."
+  echo "ERROR"
+  echo "ERROR  Please make sure you understand what is being deleted by this script."
+  echo "ERROR  Set ACCEPT_CLEANUP_T_AND_C to any non zero value and re-run."
   exit 1
 fi
 
-# finds cluster object in current kubectl context. Expects only one object.
-find_and_delete_cluster() {
-  ns_and_name=$(kubectl get cluster -A --no-headers=true | awk 'NF=2')
-  [[ -z "$ns_and_name" ]] && echo "No clusters found"
-  kubectl delete cluster -n $ns_and_name
-}
+echo "---- Switching to mgmt cluster"
+kubectl config use-context mgmt-admin@mgmt
 
-main() {
-  echo Suspend CAPI sources reconciliation.
+echo Suspend CAPI sources reconciliation.
+flux suspend kustomization infrastructure
 
-  echo "---- Switching to mgmt cluster"
-  kubectl config use-context mgmt-admin@mgmt
-  flux suspend kustomization infrastructure
-  find_and_delete_cluster
+echo $(date '+%F %H:%M:%S')
+kubectl delete cluster dev -n cluster-dev
 
-  echo "---- Switching to 'kind' cluster to delete the management 'mgmt' cluster"
-  kubectl config use-context kind-kind
-  find_and_delete_cluster
+echo $(date '+%F %H:%M:%S')
+#clusterctl move --kubeconfig=$workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt-admin@mgmt --to-kubeconfig=$HOME/.kube/config --to-kubeconfig-context=kind-kind
+clusterctl move --to-kubeconfig=$HOME/.kube/config --to-kubeconfig-context=kind-kind
 
-  kind delete cluster
-}
-
-main
+echo "---- Switching to 'kind' cluster"
+kubectl config use-context kind-kind
+kubectl delete cluster mgmt -n default
