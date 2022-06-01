@@ -5,12 +5,6 @@ workdir=$(pwd)
 # This script assumes it runs on the same setup as deployed by other scripts in this repo.
 # The following contexts are expected to be available in kubeconfig (use ./scripts/merge-kubeconfig.sh) to merge all in one
 
-# % k config get-contexts
-# CURRENT   NAME              CLUSTER     AUTHINFO     NAMESPACE
-#           dev-admin@dev     dev         dev-admin
-#           kind-kind         kind-kind   kind-kind
-# *         mgmt-admin@mgmt   mgmt        mgmt-admin
-
 if [[ -z "$ACCEPT_CLEANUP_T_AND_C" ]]; then
   echo "ERROR"
   echo "ERROR  Please make sure you understand what is being deleted by this script."
@@ -19,7 +13,7 @@ if [[ -z "$ACCEPT_CLEANUP_T_AND_C" ]]; then
 fi
 
 echo "---- Switching to mgmt cluster"
-kubectl config use-context mgmt-admin@mgmt
+kubectl config use-context mgmt
 
 echo Suspend CAPI sources reconciliation.
 flux suspend kustomization infrastructure
@@ -33,4 +27,5 @@ clusterctl move --to-kubeconfig=$HOME/.kube/config --to-kubeconfig-context=kind-
 
 echo "---- Switching to 'kind' cluster"
 kubectl config use-context kind-kind
-kubectl delete cluster mgmt -n cluster-mgmt
+# TODO - test: move both clusters to `kind` and delete in parallel
+# kubectl delete cluster mgmt -n cluster-mgmt

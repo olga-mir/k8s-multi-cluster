@@ -10,7 +10,7 @@ if [ -z "$AWS_B64ENCODED_CREDENTIALS" ] && \
    [ -z "$FLUX_REPO_SSH" ] && \   # ssh format for 'this' repo, e.g. ssh://git@github.com/olga-mir/k8s-multi-cluster
    [ -z "$FLUX_BRANCH" ] && \     # branch in this repo for flux to sync
    [ -z "$FLUX_KEY_PATH" ]; then  # path to ssh key which is a deployment key for this repo
-  echo "Error AWS_B64ENCODED_CREDENTIALS is not provided" && exit 1
+  echo "Error required env variables are not set" && exit 1
 fi
 
 set -x
@@ -27,12 +27,13 @@ nodes:
 EOF
 
 kind create cluster --config bootstrap.yaml
+kubectl create namespace cluster-mgmt
 
 clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
 
 echo $(date '+%F %H:%M:%S')
 set +e
-while ! kubectl wait crd clusters.cluster.x-k8s.io --for=condition=Established --timeout=5s; do sleep 15; done
+while ! kubectl wait crd clusters.cluster.x-k8s.io --for=condition=Established --timeout=5s; do sleep 20; done
 set -e
 
 # deploy permanent mgmt cluster object using
@@ -62,17 +63,17 @@ kubectl apply -f $workdir/mgmt-cluster/cm-calico-v3.21.yaml
 
 echo $(date '+%F %H:%M:%S')
 sleep 120
-while ! kubectl wait --for condition=ResourcesApplied=True clusterresourceset crs-calico --timeout=30s ; do
-  echo $(date '+%F %H:%M:%S') waiting for management cluster to become ready
+while ! kubectl wait --for condition=ResourcesApplied=True clusterresourceset crs-calico -n cluster-mgmt --timeout=10s ; do
+  echo $(date '+%F %H:%M:%S') waiting for management cluster to become ready && sleep 45
 done
 
 
 ############## ------ on AWS mgmt cluster ------
 
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
-clusterctl get kubeconfig mgmt > $workdir/target-mgmt.kubeconfig
+clusterctl get kubeconfig mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig
 # Apart from being shorter and nicer, it is also required later for kubefed which breaks when there are special chars in context name
-kubectl config rename-context mgmt-admin@mgmt mgmt
+kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
 
 clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt --config $workdir/mgmt-cluster/init-config-workload.yaml
 
@@ -125,7 +126,7 @@ while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait --context mgmt
 done
 
 clusterctl --kubeconfig=$workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt get kubeconfig dev -n cluster-dev > $workdir/dev.kubeconfig
-kubectl config rename-context dev-admin@dev dev
+kubectl --kubeconfig=$workdir/dev.kubeconfig config rename-context dev-admin@dev dev
 
 flux bootstrap git \
   --kubeconfig=$workdir/dev.kubeconfig --context dev \
