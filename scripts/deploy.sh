@@ -82,7 +82,7 @@ set +e
 while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
-clusterctl move --to-kubeconfig=./target-mgmt.kubeconfig
+clusterctl move --to-kubeconfig=./target-mgmt.kubeconfig -n cluster-mgmt
 
 # Now `mgmt` cluster lives on the AWS permanent management cluster:
 # % k get clusters -A
