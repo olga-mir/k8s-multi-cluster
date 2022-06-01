@@ -2,7 +2,7 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: mgmt
-  namespace: default
+  namespace: cluster-mgmt
   labels:
     cluster.x-k8s.io/cluster-name: mgmt
     cni: calico
@@ -24,7 +24,7 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSCluster
 metadata:
   name: mgmt
-  namespace: default
+  namespace: cluster-mgmt
 spec:
   region: ap-southeast-2
   sshKeyName: cks
@@ -36,7 +36,7 @@ apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
 metadata:
   name: mgmt-control-plane
-  namespace: default
+  namespace: cluster-mgmt
 spec:
   kubeadmConfigSpec:
     clusterConfiguration:
@@ -68,7 +68,7 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
 metadata:
   name: mgmt-control-plane
-  namespace: default
+  namespace: cluster-mgmt
 spec:
   template:
     spec:
@@ -80,7 +80,7 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
   name: mgmt-md-0
-  namespace: default
+  namespace: cluster-mgmt
 spec:
   clusterName: mgmt
   replicas: 1
@@ -104,7 +104,7 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
 metadata:
   name: mgmt-md-0
-  namespace: default
+  namespace: cluster-mgmt
 spec:
   template:
     spec:
@@ -116,7 +116,7 @@ apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
   name: mgmt-md-0
-  namespace: default
+  namespace: cluster-mgmt
 spec:
   template:
     spec:
@@ -131,7 +131,7 @@ apiVersion: addons.cluster.x-k8s.io/v1beta1
 kind: ClusterResourceSet
 metadata:
  name: crs-calico
- namespace: default
+ namespace: cluster-mgmt
 spec:
  strategy: 'ApplyOnce'
  clusterSelector:

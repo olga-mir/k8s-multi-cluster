@@ -33,4 +33,4 @@ clusterctl move --to-kubeconfig=$HOME/.kube/config --to-kubeconfig-context=kind-
 
 echo "---- Switching to 'kind' cluster"
 kubectl config use-context kind-kind
-kubectl delete cluster mgmt -n default
+kubectl delete cluster mgmt -n cluster-mgmt
