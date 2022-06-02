@@ -32,7 +32,7 @@ kubectl delete cluster mgmt -n cluster-mgmt &
 kubectl delete cluster dev -n cluster-dev &
 
 echo $(date '+%F %H:%M:%S')
-sleep 600
+sleep 300
 
 while kubectl get cluster mgmt -n cluster-mgmt; do
   sleep 60
