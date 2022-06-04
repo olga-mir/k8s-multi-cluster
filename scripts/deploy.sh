@@ -82,13 +82,15 @@ set +e
 while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
-clusterctl move --to-kubeconfig=./target-mgmt.kubeconfig -n cluster-mgmt
+# by default `kind` creates its context in default location (~/.kube/config if $KUBECONFIG is not set)
+clusterctl move --kubeconfig $HOME/.kube/config --kubeconfig-context kind-kind --to-kubeconfig=./target-mgmt.kubeconfig -n cluster-mgmt
 
 # Now `mgmt` cluster lives on the AWS permanent management cluster:
 # % k get clusters -A
-# NAMESPACE     NAME   PHASE         AGE   VERSION
-# cluster-dev   dev    Provisioned   50m
-# default       mgmt   Provisioned   56m
+# NAMESPACE      NAME   PHASE         AGE   VERSION
+# cluster-dev    dev    Provisioned   50m
+# cluster-mgmt   mgmt   Provisioned   56m
+
 # However for this setup, still keep the `kind` cluster because it will be useful to tear down the mgmt cluster.
 # kind delete cluster
 
