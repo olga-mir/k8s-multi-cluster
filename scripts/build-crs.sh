@@ -6,7 +6,8 @@ workdir=$(pwd)
 
 # For now every cluster use the same version of addons.
 CILIUM_VERSION="1.11.5"
-crs_cm_cillium_file=$workdir/crs-cm-cilium-${CILIUM_VERSION}.yaml
+FLUXCD_VERSION="0.30.1"
+crs_cm_cilium_file=$workdir/crs-cm-cilium-${CILIUM_VERSION}.yaml
 
 main() {
   ### Cilium
@@ -16,10 +17,10 @@ main() {
   # I don't understand this now and I don't want to commit clear text secret manifests or deal with secrets right now.
   helm template cilium cilium/cilium --version $CILIUM_VERSION --namespace kube-system --set hubble.enabled=false > $workdir/cilium-${CILIUM_VERSION}.yaml
 
-  kubectl create configmap crs-cm-cilium-${CILIUM_VERSION} --from-file=$workdir/cilium-${CILIUM_VERSION}.yaml --dry-run=client -o yaml > $workdir/infrastructure/crs-base/crs-cm-cillium-${CILIUM_VERSION}.yaml
+  kubectl create configmap crs-cm-cilium-${CILIUM_VERSION} --from-file=$workdir/cilium-${CILIUM_VERSION}.yaml --dry-run=client -o yaml > $workdir/infrastructure/base/crs-cm-cilium-${CILIUM_VERSION}.yaml
 
   ## Flux
-  #flux install --export > $workdir/flux-system.yaml
+  flux install --version=$FLUXCD_VERSION --export > $workdir/infrastructure/gotk-components.yaml
   #generate_sync $workdir/tmp-mgmt-flux-sync.yaml "./clusters/staging/mgmt"
 }
 
