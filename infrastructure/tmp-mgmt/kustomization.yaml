@@ -9,6 +9,28 @@ resources:
 patches:
 
 - target:
+    group: source.toolkit.fluxcd.io
+    version: v1beta2
+    kind: GitRepository
+    name: flux-system
+  patch: |-
+    - op: replace
+      path: /spec/ref/branch
+      value: develop
+    - op: replace
+      path: /spec/url
+      value: ssh://git@github.com/olga-mir/k8s-multi-cluster
+
+- target:
+    group: kustomize.toolkit.fluxcd.io/
+    version: v1beta2
+    kind: Kustomization
+    name: flux-system
+  patch: |-
+    - op: replace
+      path: /spec/path
+      value: ./clusters/tmp-mgmt
+- target:
     group: ""
     version: v1
     kind: ConfigMap
