@@ -1,4 +1,4 @@
-# FluxCD on temporary cluster and Flux install on permanent clusters using CRS
+# FluxCD on temporary cluster and Flux install on permanent clusters using ClusterResourceSet
 
 ## Intro
 
@@ -8,7 +8,9 @@ Capture decision points why certain things were done in certain ways and documen
 
 * remove manual install of resources on the temporary mgmt cluster by using flux on that cluster too.
 * replace `flux bootstrap` with `flux install` so that deploy keys with write permissions are not used.
-* install flux by using output of `flux isnstall` as input for CAPI `ClusterResourceSet`
+* install flux by using output of `flux install` as input for CAPI `ClusterResourceSet`
+* rename cluster-dev to "identity-less" cluster in a certaing environment for blue/green deployments.
+* create a script that packages CNI and flux as CRS manifests.
 
 This should speed up cluster creation, simplify deploy script, remove manual step of ack giving permission to flux to write to repo during `flux bootstrap` command execution, remove the need for deploy keys with write perms (at the cost of externally managing flux version upgrades, e.g in [flux GA](https://github.com/fluxcd/flux2/tree/main/action#automate-flux-updates)
 
@@ -16,9 +18,8 @@ This should speed up cluster creation, simplify deploy script, remove manual ste
 
 Important things that closely related to this delivery that need to be done, but descoped for simplicity for first iteration:
 
-* generate CAPI cluster config. Continue using hard coded manifests, that were generated initially.
+* generate CAPI cluster config. Continue using hardcoded manifests, that were generated initially.
 * kustomize CAPI cluster.yaml configs for workload clusters. This will be main selling point of using CAPI for cluster canary/lifecycle management, but it is a lot of work at this stage.
-* rename cluster-dev to "identity-less" cluster in a certaing environment for blue/green deployments.
 * install CAPI as a CRS on perm mgmt cluster.
 
 ## Current state
@@ -73,7 +74,33 @@ infrastructure
 
 ## Next state
 
-Remove the ./mgmt-cluster and the script steps that deploy those resources. Init config files will still be needed as CAPI/CAPA itself is not managed by CRS.
+Remove the `./mgmt-cluster` and the script steps that deploy those resources. Init config files will still be needed as CAPI/CAPA itself is not managed by CRS.
 tmp cluster should get its place in the `./clusters` dir and have instance of flux pointing to it.
 Create `pre-build` script that downloads CNI and Flux manifests and packages them in ConfigMaps for CRS to consume. They will be pre-built and committed to the repo for speed and history trail. (in the future building these CMs will be done in the CI for component upgrades)
 
+Re-structure `./clusters` dir in such a way that it allows for multiple environments defitions and multiple clusters in that enviroment. In large organisations it makes sense to have separate mgmt cluster for each env, so this will be desired structure for this iteration:
+
+```
+clusters
+├── staging
+│   ├── blue
+│   │   ├── infrastructure.yaml
+│   │   └── tenants.yaml
+│   └── mgmt
+│       └── infrastructure.yaml
+└── tmp-mgmt
+    ├── flux-system
+    │   ├── gotk-components.yaml // manifests that are generated with `flux install` and committed to the repo by user (not by flux)
+    │   ├── gotk-sync.yaml       // not part of `flux install`, need to be manually created and pushed to repo (this file was provided when using `flux bootstrap`)
+    │   └── kustomization.yaml
+    └── infrastructure.yaml      // pointer to CAPI manifests of the perm AWS management cluster.
+```
+Note that clusters in `./clusters/staging` do not have `flux-system` this is because flux is installed as a CRS. However, I am not sure if CRS can handle upgrade (it seems that the whole feature is actually going to be deprecated)
+
+`blue` is a workload cluster in `staging` environment. There could be other clusters here, if there are few clusters that have different purpose then each would have its blue/green flavours. both `blue` and `green` folders would exist only during transition phase, e.g when upgrading a cluster or implementing high risk cluster features that require the safety mechanism of blue/green rollout.
+This flow will be implemented in the future, but it will look a lot like this:
+1. Clone environment as described in: https://github.com/fluxcd/flux2-kustomize-helm-example#identical-environments
+2. make required modifications in the clone
+3. deploy, test, monitor
+4. phase out the old cluster.
+This will require federation and external DNS and maybe more stuff in order to glue the endpoints at the very top to make seemless transition from end-user POV.
