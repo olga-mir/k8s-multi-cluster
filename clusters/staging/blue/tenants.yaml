@@ -4,7 +4,7 @@ metadata:
   name: tenants
   namespace: flux-system
 spec:
-  interval: 5m
+  interval: 1m
   serviceAccountName: kustomize-controller
   sourceRef:
     kind: GitRepository
