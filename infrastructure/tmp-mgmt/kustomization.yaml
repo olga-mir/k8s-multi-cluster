@@ -1,10 +1,13 @@
+# This kustomization file is meant to be read by Flux instance installed on tmp-management cluster
+# the resources that are built by this file are CAPI resources that define the permanent management cluster
+
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
   - ../base/crs-cm-cillium-1.11.5.yaml
   - ../base/crs.yaml
-  - ../base/gotk-sync.yaml
+  - ../base/gotk-sync.yaml # definitions for flux instance running on permanent mgmt cluster
 
 patches:
 
@@ -29,7 +32,7 @@ patches:
   patch: |-
     - op: replace
       path: /spec/path
-      value: ./clusters/tmp-mgmt
+      value: ./clusters/staging/mgmt
 - target:
     group: ""
     version: v1
