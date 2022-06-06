@@ -6,10 +6,7 @@ set -eou pipefail
 # Provide env vars and other settings in $workdir/mgmt-cluster/init-config-mgmt.yaml file
 # (note that the content of the file is not validated)
 # AWS_B64ENCODED_CREDENTIALS currently accepted only from env var only.
-if [ -z "$AWS_B64ENCODED_CREDENTIALS" ] && \
-   [ -z "$FLUX_REPO_SSH" ] && \   # ssh format for 'this' repo, e.g. ssh://git@github.com/olga-mir/k8s-multi-cluster
-   [ -z "$FLUX_BRANCH" ] && \     # branch in this repo for flux to sync
-   [ -z "$FLUX_KEY_PATH" ]; then  # path to ssh key which is a deployment key for this repo
+if [ -z "$AWS_B64ENCODED_CREDENTIALS" ]; then
   echo "Error required env variables are not set" && exit 1
 fi
 
@@ -27,9 +24,19 @@ nodes:
 EOF
 
 kind create cluster --config bootstrap.yaml
-kubectl create namespace cluster-mgmt
+
+# Install Flux.
+# kustomize build $workdir/clusters/tmp-mgmt/flux-system | kubectl apply -f -
+kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-components.yaml
+sleep 15 # have to wait for CRDs :(
+kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 
 clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
+
+
+
+exit 0
+
 
 echo $(date '+%F %H:%M:%S')
 set +e
