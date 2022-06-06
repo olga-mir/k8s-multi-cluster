@@ -1401,6 +1401,15 @@ spec:
                   - type
                   type: object
                 type: array
+              contentConfigChecksum:
+                description: 'ContentConfigChecksum is a checksum of all the configurations
+                  related to the content of the source artifact:  - .spec.ignore  -
+                  .spec.recurseSubmodules  - .spec.included and the checksum of the
+                  included artifacts observed in .status.observedGeneration version
+                  of the object. This can be used to determine if the content of the
+                  included repository has changed. It has the format of `<algo>:<checksum>`,
+                  for example: `sha256:<checksum>`.'
+                type: string
               includedArtifacts:
                 description: IncludedArtifacts contains a list of the last successfully
                   included Artifacts as instructed by GitRepositorySpec.Include.
@@ -3217,6 +3226,13 @@ spec:
                 default: 60s
                 description: Timeout of the index fetch operation, defaults to 60s.
                 type: string
+              type:
+                description: Type of the HelmRepository. When this field is set to  "oci",
+                  the URL field value must be prefixed with "oci://".
+                enum:
+                - default
+                - oci
+                type: string
               url:
                 description: URL of the Helm repository, a valid URL contains at least
                   a protocol and host.
@@ -4593,6 +4609,7 @@ spec:
                 - opsgenie
                 - alertmanager
                 - grafana
+                - githubdispatch
                 type: string
               username:
                 description: Bot username for this provider
@@ -5197,7 +5214,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/fluxcd/helm-controller:v0.21.0
+        image: ghcr.io/fluxcd/helm-controller:v0.22.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -5279,7 +5296,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/fluxcd/kustomize-controller:v0.25.0
+        image: ghcr.io/fluxcd/kustomize-controller:v0.26.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -5360,7 +5377,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/fluxcd/notification-controller:v0.23.5
+        image: ghcr.io/fluxcd/notification-controller:v0.24.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
@@ -5452,7 +5469,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/fluxcd/source-controller:v0.24.4
+        image: ghcr.io/fluxcd/source-controller:v0.25.3
         imagePullPolicy: IfNotPresent
         livenessProbe:
           httpGet:
