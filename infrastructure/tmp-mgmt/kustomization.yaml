@@ -5,7 +5,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - ../base/crs-cm-cillium-1.11.5.yaml
+  - ../base/crs-cm-cilium-1.11.5.yaml
   - ../base/crs.yaml
   - ../base/gotk-sync.yaml # definitions for flux instance running on permanent mgmt cluster
 

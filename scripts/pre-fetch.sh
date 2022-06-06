@@ -46,7 +46,7 @@ main() {
 
   # now we can put this in CM. (k create cm accepts --from-<whatever> multiple times,
   # but it creates a separate data entry for each occurence, that's why concatenating file was necessary
-  kubectl create configmap crs-cm-flux-${FLUX_VERSION} --from-file=$flux_yaml -n cluster-mgmt --dry-run=client -o yaml > $workdir/infrastructure/base/crs-cm-flux-mgmt.yaml
+  kubectl create configmap crs-cm-flux-${FLUXCD_VERSION}-mgmt --from-file=$flux_yaml -n cluster-mgmt --dry-run=client -o yaml > $workdir/infrastructure/base/crs-cm-flux-mgmt.yaml
   # (this should not be base path - cluster specific things are baked into CM payload and are not accessible to kustomize. facepalm emoji goes here)
 }
 
