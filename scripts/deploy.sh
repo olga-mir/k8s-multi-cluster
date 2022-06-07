@@ -66,6 +66,12 @@ kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-
 
 clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt --config $workdir/mgmt-cluster/init-config-workload.yaml
 
+kubectl create secret generic flux-system -n flux-system \
+  --kubeconfig=$workdir/target-mgmt.kubeconfig
+  --from-file identity=$FLUX_KEY_PATH  \
+  --from-file identity.pub=$FLUX_KEY_PATH.pub \
+  --from-literal known_hosts="$GITHUB_KNOWN_HOSTS"
+
 echo $(date '+%F %H:%M:%S')
 set +e
 while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
@@ -83,35 +89,11 @@ clusterctl move --kubeconfig $HOME/.kube/config --kubeconfig-context kind-kind -
 # However for this setup, still keep the `kind` cluster because it will be useful to tear down the mgmt cluster.
 # kind delete cluster
 
-
-############## ------ FluxCD on AWS mgmt cluster ------
-
-# repo per team
-# https://fluxcd.io/docs/guides/repository-structure/#repo-per-team
-# https://github.com/fluxcd/flux2-multi-tenancy
-
-# *github* flux bootstrap uses PAT for auth. For using SSH follow *generic git server* instructions.
-
-# use existing key or generate a new one according to docs:
-# https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
-# add public key as a deployment key to the repo.
-
-# Create SSH secret as described in: https://fluxcd.io/docs/components/source/gitrepositories/#ssh-authentication
-# `k get secret flux-system -n flux-system` is the secret in the link above (ssh-credentials)
-
-flux bootstrap git \
-  --kubeconfig=$workdir/target-mgmt.kubeconfig --context mgmt \
-  --url=$FLUX_REPO_SSH \
-  --branch=$FLUX_BRANCH \
-  --private-key-file=$FLUX_KEY_PATH \
-  --path=clusters/mgmt
-
-
 ############## ------ Workload cluster bootstrap ------
 
 # Once Flux is bootstrapped on the cluster it will apply cluster-dev CAPI definition and workload cluster will start provisioning
 sleep 90
-while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait --context mgmt --for condition=ResourcesApplied=True clusterresourceset crs-calico -n cluster-dev --timeout=15s ; do
+while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait --context mgmt --for condition=ResourcesApplied=True clusterresourceset crs -n cluster-dev --timeout=15s ; do
   echo $(date '+%F %H:%M:%S') waiting for workload cluster to become ready
   sleep 15
 done

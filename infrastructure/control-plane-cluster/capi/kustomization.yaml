@@ -3,4 +3,31 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - cluster.yaml
-  - cm-calico-v3.21.yaml
+  - ../../base/crs-cm-cilium-1.11.5.yaml
+  - ../../base/crs.yaml
+
+- target:
+    group: ""
+    version: v1
+    kind: ConfigMap
+    name: crs-cm-cilium-1.11.5
+  patch: |-
+    - op: add
+      path: /metadata/namespace
+      value: cluster-dev
+
+- target:
+    group: addons.cluster.x-k8s.io
+    version: v1beta1
+    kind: ClusterResourceSet
+    name: crs
+  patch: |-
+    - op: add
+      path: /metadata/namespace
+      value: cluster-dev
+    - op: add
+      path: /spec/resources/0/name
+      value: crs-cm-cilium-1.11.5
+    - op: add
+      path: /spec/resources/0/kind
+      value: ConfigMap
