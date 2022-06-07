@@ -20,7 +20,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m0s
-  path: ./clusters/cluster-dev
+  path: ./clusters/staging/blue
   prune: true
   sourceRef:
     kind: GitRepository

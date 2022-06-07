@@ -6,7 +6,8 @@ set -eou pipefail
 # Provide env vars and other settings in $workdir/mgmt-cluster/init-config-mgmt.yaml file
 # (note that the content of the file is not validated)
 # AWS_B64ENCODED_CREDENTIALS currently accepted only from env var only.
-if [ -z "$AWS_B64ENCODED_CREDENTIALS" ]; then
+if [ -z "$AWS_B64ENCODED_CREDENTIALS" ] && \
+   [ -z "$FLUX_KEY_PATH" ]; then
   echo "Error required env variables are not set" && exit 1
 fi
 
@@ -26,47 +27,25 @@ EOF
 kind create cluster --config bootstrap.yaml
 
 # Install Flux.
-# kustomize build $workdir/clusters/tmp-mgmt/flux-system | kubectl apply -f -
 kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-components.yaml
-sleep 15 # have to wait for CRDs :(
+
+# https://github.blog/changelog/2022-01-18-githubs-ssh-host-keys-are-now-published-in-the-api/
+# curl -H "Accept: application/vnd.github.v3+json" -s https://api.github.com/meta | jq -r '.ssh_keys'
+# select the one that starts with "ecdsa-sha2-nistp256"
+GITHUB_KNOWN_HOSTS="github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg="
+kubectl create secret generic flux-system -n flux-system \
+  --from-file identity=$FLUX_KEY_PATH  \
+  --from-file identity.pub=$FLUX_KEY_PATH.pub \
+  --from-literal known_hosts="$GITHUB_KNOWN_HOSTS"
+
+set +e
+while ! kubectl wait crd kustomizations.kustomize.toolkit.fluxcd.io --for=condition=Established --timeout=5s; do sleep 5; done
+kubectl wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Established --timeout=10s
+set -e
+
 kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 
 clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
-
-
-
-exit 0
-
-
-echo $(date '+%F %H:%M:%S')
-set +e
-while ! kubectl wait crd clusters.cluster.x-k8s.io --for=condition=Established --timeout=5s; do sleep 20; done
-set -e
-
-# deploy permanent mgmt cluster object using
-# manifests that were created beforehand with `clusterctl generate cluster mgmt`
-
-# applying cluster manifests immediatelly will fail because components webhooks are not yet ready to serve traffic
-# it is easier to retry applying rather than checking on each component individually
-echo $(date '+%F %H:%M:%S')
-retries=8
-set +e
-kubectl apply -f $workdir/mgmt-cluster/cluster.yaml 2>/dev/null
-while [ $? -ne 0 ]; do
-  echo Failed to apply cluster config, re-trying
-  sleep 15
-  if [[ $retries -eq 0 ]]; then
-    # if retries are exhausted, there might be a genuine error, run the command one more time without swallowing the error
-    kubectl apply -f $workdir/mgmt-cluster/cluster.yaml
-    echo "Failed to apply cluster config, aborting."
-    exit 1
-  fi
-  ((retries--))
-  kubectl apply -f $workdir/mgmt-cluster/cluster.yaml 2>/dev/null
-done
-set -e
-
-kubectl apply -f $workdir/mgmt-cluster/cm-calico-v3.21.yaml
 
 echo $(date '+%F %H:%M:%S')
 sleep 120
