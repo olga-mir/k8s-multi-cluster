@@ -43,13 +43,16 @@ while ! kubectl wait crd kustomizations.kustomize.toolkit.fluxcd.io --for=condit
 kubectl wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Established --timeout=10s
 set -e
 
+# This has to be applied separately because it depends on CRDs that were created in gotk-components.
 kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 
+# cluster resource for permanent management cluster and the accompanying ClusterResourceSet
+# are applied by flux. When the CRS is applied the permanent cluster should be ready to use.
 clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
 
 echo $(date '+%F %H:%M:%S')
 sleep 120
-while ! kubectl wait --for condition=ResourcesApplied=True clusterresourceset crs-calico -n cluster-mgmt --timeout=10s ; do
+while ! kubectl wait --for condition=ResourcesApplied=True clusterresourceset crs -n cluster-mgmt --timeout=10s; do
   echo $(date '+%F %H:%M:%S') waiting for management cluster to become ready && sleep 45
 done
 
