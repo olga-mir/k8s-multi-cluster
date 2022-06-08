@@ -10,7 +10,7 @@ set -eoux pipefail
 running_instances=$(aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].InstanceId" --output=text)
 aws ec2 terminate-instances --instance-ids $running_instances
 
-nat_gateways=$(aws ec2 describe-nat-gateways --query "NatGateways[].NatGatewayId")
+nat_gateways=$(aws ec2 describe-nat-gateways --query "NatGateways[].NatGatewayId" --output=text)
 for n in ${nat_gateways[@]}; do
   aws ec2 delete-nat-gateway --nat-gateway-id $n
 done
@@ -18,7 +18,10 @@ done
 aws elb delete-load-balancer --load-balancer-name=mgmt-apiserver
 sleep 60
 
-aws ec2 release-address --allocation-id=$(aws ec2 describe-addresses --query "Addresses[].AllocationId" --output=text)
+eips=$(aws ec2 describe-addresses --query "Addresses[].AllocationId" --output=text)
+for i in ${eips[@]}; do
+  aws ec2 release-address --allocation-id $i
+done
 
 # Some time after NAT and LB are deleted and ENIs are deleted it will be possible to simply delete VPC from the console.
 # The command will still hang though, if attempted to delete from CLI:
