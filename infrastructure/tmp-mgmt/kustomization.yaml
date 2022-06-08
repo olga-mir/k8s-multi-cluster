@@ -7,35 +7,11 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - cluster.yaml
+  - crs-cm-flux-0.30.1-mgmt.yaml
   - ../base/crs-cm-cilium-1.11.5.yaml
   - ../base/crs.yaml
-  #- ../base/gotk-sync.yaml # definitions for flux instance that will be running on permanent mgmt cluster
 
 patches:
-
-#- target:
-#    group: source.toolkit.fluxcd.io
-#    version: v1beta2
-#    kind: GitRepository
-#    name: flux-system
-#  patch: |-
-#    - op: replace
-#      path: /spec/ref/branch
-#      value: develop
-#    - op: replace
-#      path: /spec/url
-#      value: ssh://git@github.com/olga-mir/k8s-multi-cluster
-#
-#- target:
-#    group: kustomize.toolkit.fluxcd.io/
-#    version: v1beta2
-#    kind: Kustomization
-#    name: flux-system
-#  patch: |-
-#    - op: replace
-#      path: /spec/path
-#      value: ./clusters/staging/mgmt
-
 - target:
     group: ""
     version: v1
@@ -60,4 +36,10 @@ patches:
       value: crs-cm-cilium-1.11.5
     - op: add
       path: /spec/resources/0/kind
+      value: ConfigMap
+    - op: add
+      path: /spec/resources/1/name
+      value: crs-cm-flux-0.30.1-mgmt
+    - op: add
+      path: /spec/resources/1/kind
       value: ConfigMap

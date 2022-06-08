@@ -12,3 +12,5 @@ spec:
  resources:
    - name: override-me
      kind: ConfigMap
+   - name: override-me-2
+     kind: ConfigMap
