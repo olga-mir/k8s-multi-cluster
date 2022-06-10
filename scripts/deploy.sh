@@ -64,6 +64,14 @@ clusterctl get kubeconfig mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig
 # Apart from being shorter and nicer, it is also required later for kubefed which breaks when there are special chars in context name
 kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
 
+# delete kube-proxy as described here (without the iptables part): https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
+# skipPhases is implemented in CABPK but not released yet: https://github.com/kubernetes-sigs/cluster-api/pull/5993
+kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig --context=mgmt -n kube-system delete ds kube-proxy
+kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig --context=mgmt -n kube-system delete cm kube-proxy
+
+echo $(date '+%F %H:%M:%S') Wait for things to settle.
+sleep 120
+
 clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt --config $workdir/mgmt-cluster/init-config-workload.yaml
 
 kubectl create secret generic flux-system -n flux-system \
@@ -101,9 +109,7 @@ done
 clusterctl --kubeconfig=$workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt get kubeconfig dev -n cluster-dev > $workdir/dev.kubeconfig
 kubectl --kubeconfig=$workdir/dev.kubeconfig config rename-context dev-admin@dev dev
 
-flux bootstrap git \
-  --kubeconfig=$workdir/dev.kubeconfig --context dev \
-  --url=$FLUX_REPO_SSH \
-  --branch=$FLUX_BRANCH \
-  --private-key-file=$FLUX_KEY_PATH \
-  --path=clusters/cluster-dev
+# delete kube-proxy as described here (without the iptables part): https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
+# skipPhases is implemented in CABPK but not released yet: https://github.com/kubernetes-sigs/cluster-api/pull/5993
+kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig --context=mgmt -n kube-system delete ds kube-proxy
+kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig --context=mgmt -n kube-system delete cm kube-proxy
