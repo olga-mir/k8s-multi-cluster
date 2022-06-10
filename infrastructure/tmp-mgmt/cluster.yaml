@@ -51,8 +51,6 @@ spec:
         kubeletExtraArgs:
           cloud-provider: aws
         name: '{{ ds.meta_data.local_hostname }}'
-      skipPhases:
-      - addon/kube-proxy
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
