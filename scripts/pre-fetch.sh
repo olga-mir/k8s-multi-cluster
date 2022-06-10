@@ -17,7 +17,15 @@ main() {
 
   # disable Hubble because otherwise the manifest contains secrets with CAs and private keys.
   # I don't understand this now and I don't want to commit clear text secret manifests or deal with secrets right now.
-  helm template cilium cilium/cilium --version $CILIUM_VERSION --namespace kube-system --set hubble.enabled=false > $temp_dir/cilium-$CILIUM_VERSION.yaml
+  helm template cilium cilium/cilium --version $CILIUM_VERSION --namespace kube-system \
+    --set hubble.enabled=false \
+    --set nodeinit.enabled=true \
+    --set kubeProxyReplacement=partial \
+    --set hostServices.enabled=true \
+    --set nodePort.enabled=true \
+    --set externalIPs.enabled=true \
+    --set hostPort.enabled=true \
+    > $temp_dir/cilium-$CILIUM_VERSION.yaml
 
   kubectl create configmap crs-cm-cilium-$CILIUM_VERSION --from-file=$temp_dir/cilium-$CILIUM_VERSION.yaml --dry-run=client -o yaml > $workdir/infrastructure/base/crs-cm-cilium-$CILIUM_VERSION.yaml
 
