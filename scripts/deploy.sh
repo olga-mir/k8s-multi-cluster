@@ -1,19 +1,21 @@
 #!/bin/bash
-set -eou pipefail
+set -eoux pipefail
+
+workdir=$(pwd)
+KUBECTL_MGMT="kubectl --kubeconfig $workdir/target-mgmt.kubeconfig --context mgmt"
+KUBECTL_WORKLOAD="kubectl --kubeconfig $workdir/dev.kubeconfig --context dev"
 
 # For more details please check docs/bootstrap-and-pivot.md doc in this repo
 
 # Provide env vars and other settings in $workdir/mgmt-cluster/init-config-mgmt.yaml file
 # (note that the content of the file is not validated)
 # AWS_B64ENCODED_CREDENTIALS currently accepted only from env var only.
+set +x
 if [ -z "$AWS_B64ENCODED_CREDENTIALS" ] && \
    [ -z "$FLUX_KEY_PATH" ]; then
   echo "Error required env variables are not set" && exit 1
 fi
-
 set -x
-
-workdir=$(pwd)
 
 trap "rm -f bootstrap.yaml" EXIT
 cat > bootstrap.yaml << EOF
@@ -50,10 +52,10 @@ kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 # are applied by flux. When the CRS is applied the permanent cluster should be ready to use.
 clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
 
-echo $(date '+%F %H:%M:%S')
+echo $(date '+%F %H:%M:%S') - Waiting for Permanent Management cluster provisioning and setup complete.
 sleep 120
 while ! kubectl wait --for condition=ResourcesApplied=True clusterresourceset crs -n cluster-mgmt --timeout=10s; do
-  echo $(date '+%F %H:%M:%S') waiting for management cluster to become ready && sleep 45
+  echo $(date '+%F %H:%M:%S') re-try in 45s... && sleep 45
 done
 
 
@@ -64,17 +66,42 @@ clusterctl get kubeconfig mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig
 # Apart from being shorter and nicer, it is also required later for kubefed which breaks when there are special chars in context name
 kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
 
+# https://github.com/cilium/cilium/blob/master/install/kubernetes/cilium/values.yaml
+CILIUM_VERSION=1.11.5
+helm repo add cilium https://helm.cilium.io
+controlPlaneHost=$(kubectl get cluster -n cluster-mgmt mgmt -o yaml | yq e '.spec.controlPlaneEndpoint.host' -)
+controlPlanePort=$(kubectl get cluster -n cluster-mgmt mgmt -o yaml | yq e '.spec.controlPlaneEndpoint.port' -)
+helm template cilium cilium/cilium --version $CILIUM_VERSION \
+    --namespace kube-system \
+    --set kubeProxyReplacement=strict \
+    --set k8sServiceHost=$controlPlaneHost \
+    --set k8sServicePort=$controlPlanePort \
+    > $workdir/cilium-$CILIUM_VERSION.yaml
+$KUBECTL_MGMT apply -f $workdir/cilium-$CILIUM_VERSION.yaml
+
+# https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
+$KUBECTL_MGMT -n kube-system delete ds kube-proxy --ignore-not-found
+$KUBECTL_MGMT -n kube-system delete cm kube-proxy --ignore-not-found
+# $ iptables-save | grep -v KUBE | iptables-restore
+
+sleep 30
+# check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
+$KUBECTL_MGMT create ns cilium-test
+$KUBECTL_MGMT apply -n cilium-test -f https://raw.githubusercontent.com/cilium/cilium/v1.11/examples/kubernetes/connectivity-check/connectivity-check.yaml
+sleep 30
+$KUBECTL_MGMT get pods -no-headers=true -n cilium-test | grep -Ev "Running|multi-node"
+#TODO check output and delete test namespace
+
 clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt --config $workdir/mgmt-cluster/init-config-workload.yaml
 
-kubectl create secret generic flux-system -n flux-system \
-  --kubeconfig=$workdir/target-mgmt.kubeconfig
+$KUBECTL_MGMT create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
   --from-file identity.pub=$FLUX_KEY_PATH.pub \
   --from-literal known_hosts="$GITHUB_KNOWN_HOSTS"
 
 echo $(date '+%F %H:%M:%S')
 set +e
-while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
+while ! $KUBECTL_MGMT wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
 # by default `kind` creates its context in default location (~/.kube/config if $KUBECONFIG is not set)

@@ -8,20 +8,9 @@ resources:
   - namespace.yaml
   - cluster.yaml
   - crs-cm-flux-0.30.1-mgmt.yaml
-  - ../base/crs-cm-cilium-1.11.5.yaml
   - ../base/crs.yaml
 
 patches:
-- target:
-    group: ""
-    version: v1
-    kind: ConfigMap
-    name: crs-cm-cilium-1.11.5
-  patch: |-
-    - op: add
-      path: /metadata/namespace
-      value: cluster-mgmt
-
 - target:
     group: addons.cluster.x-k8s.io
     version: v1beta1
@@ -31,15 +20,9 @@ patches:
     - op: add
       path: /metadata/namespace
       value: cluster-mgmt
-    - op: add
+    - op: replace
       path: /spec/resources/0/name
-      value: crs-cm-cilium-1.11.5
-    - op: add
-      path: /spec/resources/0/kind
-      value: ConfigMap
-    - op: add
-      path: /spec/resources/1/name
       value: crs-cm-flux-0.30.1-mgmt
-    - op: add
-      path: /spec/resources/1/kind
+    - op: replace
+      path: /spec/resources/0/kind
       value: ConfigMap
