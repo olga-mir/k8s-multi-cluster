@@ -52,37 +52,41 @@ kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 # are applied by flux. When the CRS is applied the permanent cluster should be ready to use.
 clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
 
-echo $(date '+%F %H:%M:%S') - Waiting for Permanent Management cluster provisioning and setup complete.
-sleep 120
-while ! kubectl wait --for condition=ResourcesApplied=True clusterresourceset crs -n cluster-mgmt --timeout=10s; do
-  echo $(date '+%F %H:%M:%S') re-try in 45s... && sleep 45
-done
-
 
 ############## ------ on AWS mgmt cluster ------
 
-# kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
-clusterctl get kubeconfig mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig
-# Apart from being shorter and nicer, it is also required later for kubefed which breaks when there are special chars in context name
-kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
 
-# https://github.com/cilium/cilium/blob/master/install/kubernetes/cilium/values.yaml
-CILIUM_VERSION=1.11.5
-helm repo add cilium https://helm.cilium.io
-controlPlaneHost=$(kubectl get cluster -n cluster-mgmt mgmt -o yaml | yq e '.spec.controlPlaneEndpoint.host' -)
-controlPlanePort=$(kubectl get cluster -n cluster-mgmt mgmt -o yaml | yq e '.spec.controlPlaneEndpoint.port' -)
-helm template cilium cilium/cilium --version $CILIUM_VERSION \
-    --namespace kube-system \
-    --set kubeProxyReplacement=strict \
-    --set k8sServiceHost=$controlPlaneHost \
-    --set k8sServicePort=$controlPlanePort \
-    > $workdir/cilium-$CILIUM_VERSION.yaml
-$KUBECTL_MGMT apply -f $workdir/cilium-$CILIUM_VERSION.yaml
+# kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
+echo $(date '+%F %H:%M:%S') - Waiting for Permanent Management cluster kubeconfig being available
+sleep 60
+while ! clusterctl get kubeconfig mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig ; do
+  echo $(date '+%F %H:%M:%S') re-try in 15s... && sleep 15
+done
+
+kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
 
 # https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
 $KUBECTL_MGMT -n kube-system delete ds kube-proxy --ignore-not-found
 $KUBECTL_MGMT -n kube-system delete cm kube-proxy --ignore-not-found
 # $ iptables-save | grep -v KUBE | iptables-restore
+
+# find IP address of API server
+kas=$($KUBECTL_MGMT get pod -n kube-system -o name | grep "kube-apiserver")
+controlPlaneHost=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
+controlPlanePort='6443'
+
+# https://github.com/cilium/cilium/blob/master/install/kubernetes/cilium/values.yaml
+CILIUM_VERSION=1.11.6
+helm repo add cilium https://helm.cilium.io
+helm template cilium cilium/cilium --version $CILIUM_VERSION \
+    --namespace cilium \
+    --set kubeProxyReplacement=strict \
+    --set k8sServiceHost=$controlPlaneHost \
+    --set k8sServicePort=$controlPlanePort \
+    --set bpf.masquerade=true \
+    --set bpf.hostLegacyRouting=false \ # doesn't seem reflected in cilium status
+    > $workdir/cilium-$CILIUM_VERSION.yaml
+$KUBECTL_MGMT apply -f $workdir/cilium-$CILIUM_VERSION.yaml
 
 sleep 30
 # check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
