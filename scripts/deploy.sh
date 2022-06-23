@@ -4,6 +4,7 @@ set -eoux pipefail
 workdir=$(pwd)
 KUBECTL_MGMT="kubectl --kubeconfig $workdir/target-mgmt.kubeconfig --context mgmt"
 KUBECTL_WORKLOAD="kubectl --kubeconfig $workdir/dev.kubeconfig --context dev"
+CAPI_VERSION="v1.2.0-beta.0"
 
 # For more details please check docs/bootstrap-and-pivot.md doc in this repo
 
@@ -50,8 +51,13 @@ kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 
 # cluster resource for permanent management cluster and the accompanying ClusterResourceSet
 # are applied by flux. When the CRS is applied the permanent cluster should be ready to use.
-clusterctl init --infrastructure aws --config $workdir/mgmt-cluster/init-config-mgmt.yaml
 
+clusterctl init \
+  --config $workdir/mgmt-cluster/init-config-mgmt.yaml \
+  --core cluster-api:$CAPI_VERSION \
+  --bootstrap kubeadm:$CAPI_VERSION \
+  --control-plane kubeadm:$CAPI_VERSION \
+  --infrastructure aws
 
 ############## ------ on AWS mgmt cluster ------
 
@@ -65,13 +71,8 @@ done
 
 kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
 
-# https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
-$KUBECTL_MGMT -n kube-system delete ds kube-proxy --ignore-not-found
-$KUBECTL_MGMT -n kube-system delete cm kube-proxy --ignore-not-found
-# $ iptables-save | grep -v KUBE | iptables-restore
-
 # find IP address of API server
-kas=$($KUBECTL_MGMT get pod -n kube-system -o name | grep "kube-apiserver")
+kas=$($KUBECTL_MGMT get pod -n kube-system -o name | grep 'kube-apiserver')
 controlPlaneHost=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
 controlPlanePort='6443'
 
@@ -79,24 +80,28 @@ controlPlanePort='6443'
 CILIUM_VERSION=1.11.6
 helm repo add cilium https://helm.cilium.io
 helm template cilium cilium/cilium --version $CILIUM_VERSION \
-    --namespace cilium \
+    --namespace kube-system \
     --set kubeProxyReplacement=strict \
     --set k8sServiceHost=$controlPlaneHost \
     --set k8sServicePort=$controlPlanePort \
     --set bpf.masquerade=true \
-    --set bpf.hostLegacyRouting=false \ # doesn't seem reflected in cilium status
-    > $workdir/cilium-$CILIUM_VERSION.yaml
+    --set bpf.hostLegacyRouting=false > $workdir/cilium-$CILIUM_VERSION.yaml
 $KUBECTL_MGMT apply -f $workdir/cilium-$CILIUM_VERSION.yaml
 
 sleep 30
 # check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
 $KUBECTL_MGMT create ns cilium-test
-$KUBECTL_MGMT apply -n cilium-test -f https://raw.githubusercontent.com/cilium/cilium/v1.11/examples/kubernetes/connectivity-check/connectivity-check.yaml
-sleep 30
-$KUBECTL_MGMT get pods -no-headers=true -n cilium-test | grep -Ev "Running|multi-node"
+#$KUBECTL_MGMT apply -n cilium-test -f https://raw.githubusercontent.com/cilium/cilium/v1.11/examples/kubernetes/connectivity-check/connectivity-check.yaml
+#sleep 30
+#$KUBECTL_MGMT get pods -no-headers=true -n cilium-test | grep -Ev "Running|multi-node"
 #TODO check output and delete test namespace
 
-clusterctl init --infrastructure aws --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt --config $workdir/mgmt-cluster/init-config-workload.yaml
+clusterctl init --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt \
+  --config $workdir/mgmt-cluster/init-config-workload.yaml \
+  --core cluster-api:$CAPI_VERSION \
+  --bootstrap kubeadm:$CAPI_VERSION \
+  --control-plane kubeadm:$CAPI_VERSION \
+  --infrastructure aws
 
 $KUBECTL_MGMT create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \

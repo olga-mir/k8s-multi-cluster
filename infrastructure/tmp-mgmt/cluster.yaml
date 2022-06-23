@@ -51,6 +51,8 @@ spec:
         kubeletExtraArgs:
           cloud-provider: aws
         name: '{{ ds.meta_data.local_hostname }}'
+      skipPhases:
+      - addon/kube-proxy
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
@@ -62,7 +64,7 @@ spec:
       kind: AWSMachineTemplate
       name: mgmt-control-plane
   replicas: 1
-  version: 1.22.8
+  version: 1.23.8
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
@@ -98,7 +100,7 @@ spec:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AWSMachineTemplate
         name: mgmt-md-0
-      version: 1.22.8
+      version: 1.23.8
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
