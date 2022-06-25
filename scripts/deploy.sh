@@ -63,7 +63,7 @@ clusterctl init \
 
 
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
-echo $(date '+%F %H:%M:%S') - Waiting for Permanent Management cluster kubeconfig being available
+echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
 sleep 60
 while ! clusterctl get kubeconfig mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig ; do
   echo $(date '+%F %H:%M:%S') re-try in 15s... && sleep 15
@@ -71,8 +71,10 @@ done
 
 kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
 
-# find IP address of API server
-kas=$($KUBECTL_MGMT get pod -n kube-system -o name | grep 'kube-apiserver')
+set +e
+echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
+while ! kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name); do sleep 10; done
+set -e
 controlPlaneHost=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
 controlPlanePort='6443'
 
@@ -84,17 +86,15 @@ helm template cilium cilium/cilium --version $CILIUM_VERSION \
     --set kubeProxyReplacement=strict \
     --set k8sServiceHost=$controlPlaneHost \
     --set k8sServicePort=$controlPlanePort \
+    --set ipam.mode='cluster-pool' \
+    --set ipam.operator.clusterPoolIPv4PodCIDRList={192.168.0.0/16} \
+    --set ipam.operator.clusterPoolIPv4MaskSize=24 \
     --set bpf.masquerade=true \
     --set bpf.hostLegacyRouting=false > $workdir/cilium-$CILIUM_VERSION.yaml
 $KUBECTL_MGMT apply -f $workdir/cilium-$CILIUM_VERSION.yaml
 
 sleep 30
 # check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
-$KUBECTL_MGMT create ns cilium-test
-#$KUBECTL_MGMT apply -n cilium-test -f https://raw.githubusercontent.com/cilium/cilium/v1.11/examples/kubernetes/connectivity-check/connectivity-check.yaml
-#sleep 30
-#$KUBECTL_MGMT get pods -no-headers=true -n cilium-test | grep -Ev "Running|multi-node"
-#TODO check output and delete test namespace
 
 clusterctl init --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt \
   --config $workdir/mgmt-cluster/init-config-workload.yaml \
