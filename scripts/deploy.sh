@@ -73,8 +73,9 @@ kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-
 
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
-while ! kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name); do sleep 10; done
+while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
 set -e
+kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
 controlPlaneHost=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
 controlPlanePort='6443'
 
