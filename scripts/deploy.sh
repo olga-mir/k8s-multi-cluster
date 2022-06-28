@@ -2,9 +2,14 @@
 set -eoux pipefail
 
 workdir=$(pwd)
+tempdir=$(mktemp -d)
 KUBECTL_MGMT="kubectl --kubeconfig $workdir/target-mgmt.kubeconfig --context mgmt"
 KUBECTL_WORKLOAD="kubectl --kubeconfig $workdir/dev.kubeconfig --context dev"
 CAPI_VERSION="v1.2.0-beta.0"
+
+trap 'exit_handler $? $LINENO' EXIT
+
+main() {
 
 # For more details please check docs/bootstrap-and-pivot.md doc in this repo
 
@@ -18,8 +23,7 @@ if [ -z "$AWS_B64ENCODED_CREDENTIALS" ] && \
 fi
 set -x
 
-trap "rm -f bootstrap.yaml" EXIT
-cat > bootstrap.yaml << EOF
+cat > $tempdir/kind-bootstrap.yaml << EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -27,7 +31,7 @@ nodes:
   - role: worker
 EOF
 
-kind create cluster --config bootstrap.yaml
+kind create cluster --config $tempdir/kind-bootstrap.yaml
 
 # Install Flux.
 kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-components.yaml
@@ -91,8 +95,8 @@ helm template cilium cilium/cilium --version $CILIUM_VERSION \
     --set ipam.operator.clusterPoolIPv4PodCIDRList={192.168.0.0/16} \
     --set ipam.operator.clusterPoolIPv4MaskSize=24 \
     --set bpf.masquerade=true \
-    --set bpf.hostLegacyRouting=false > $workdir/cilium-$CILIUM_VERSION.yaml
-$KUBECTL_MGMT apply -f $workdir/cilium-$CILIUM_VERSION.yaml
+    --set bpf.hostLegacyRouting=false > $tempdir/cilium-mgmt-$CILIUM_VERSION.yaml
+$KUBECTL_MGMT apply -f $tempdir/cilium-mgmt-$CILIUM_VERSION.yaml
 
 sleep 30
 # check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
@@ -123,7 +127,9 @@ clusterctl move --kubeconfig $HOME/.kube/config --kubeconfig-context kind-kind -
 # cluster-dev    dev    Provisioned   50m
 # cluster-mgmt   mgmt   Provisioned   56m
 
-# However for this setup, still keep the `kind` cluster because it will be useful to tear down the mgmt cluster.
+# At this stage `kind` cluster can be safely deleted. Later a new temp cluster can be created to move the permanent
+# management cluster to. But for the purpose of this project just keep this cluster running. It will be used later
+# to delete mgmt and all workload clusters in parallel
 # kind delete cluster
 
 ############## ------ Workload cluster bootstrap ------
@@ -138,9 +144,51 @@ done
 clusterctl --kubeconfig=$workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt get kubeconfig dev -n cluster-dev > $workdir/dev.kubeconfig
 kubectl --kubeconfig=$workdir/dev.kubeconfig config rename-context dev-admin@dev dev
 
-flux bootstrap git \
-  --kubeconfig=$workdir/dev.kubeconfig --context dev \
-  --url=$FLUX_REPO_SSH \
-  --branch=$FLUX_BRANCH \
-  --private-key-file=$FLUX_KEY_PATH \
-  --path=clusters/cluster-dev
+# no need to bootstrap flux, because it is applied as part of the CRS
+
+# this is not applied as a CRS because the API server IP is known at runtime
+# but babysitting each cluster in bash script defeating the purpose of CAPI.
+# Alternatives:
+# let it install via CRS without KAS IP and kubectl apply it once it is known
+# this is stinky because it is still bash babysitting, also because it relies
+# on the fact that CRS is not going to implement anything other than 'ApplyOnce'
+# BYO infra including ELB and provide that ELB name for KAS location as part of CRS.
+# Not tested if ELB DNS name will be good enough for `k8sServiceHost`
+# and BYO infra is a lot of work
+set +e
+echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
+while [ -z $($KUBECTL_DEV get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
+set -e
+kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
+controlPlaneHost=$($KUBECTL_DEV get $kas -n kube-system --template '{{.status.podIP}}')
+controlPlanePort='6443'
+
+helm template cilium cilium/cilium --version $CILIUM_VERSION \
+    --namespace kube-system \
+    --set kubeProxyReplacement=strict \
+    --set k8sServiceHost=$controlPlaneHost \
+    --set k8sServicePort=$controlPlanePort \
+    --set ipam.mode='cluster-pool' \
+    --set ipam.operator.clusterPoolIPv4PodCIDRList={192.168.0.0/16} \
+    --set ipam.operator.clusterPoolIPv4MaskSize=24 \
+    --set bpf.masquerade=true \
+    --set bpf.hostLegacyRouting=false > $tempdir/cilium-workload-$CILIUM_VERSION.yaml
+$KUBECTL_DEV apply -f $tempdir/cilium-workload-$CILIUM_VERSION.yaml
+
+} # end main
+
+exit_handler() {
+  set +x
+  if [ "$1" != "0" ]; then
+    echo "LINE: $2 ERROR: $1"
+  fi
+  rm -f $tempdir/kind-bootstrap.yaml
+  echo Files used for this installation are stored in $tempdir for debug
+  echo Remember to rm -rf if they are not needed
+  echo
+  echo kubeconfig files:
+  echo $workdir/target-mgmt.kubeconfig
+  echo $workdir/dev.kubeconfig
+}
+
+main
