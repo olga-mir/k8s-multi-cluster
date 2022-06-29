@@ -157,10 +157,10 @@ kubectl --kubeconfig=$workdir/dev.kubeconfig config rename-context dev-admin@dev
 # and BYO infra is a lot of work
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
-while [ -z $($KUBECTL_DEV get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
+while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
 set -e
-kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
-controlPlaneHost=$($KUBECTL_DEV get $kas -n kube-system --template '{{.status.podIP}}')
+kas=$($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name)
+controlPlaneHost=$($KUBECTL_WORKLOAD get $kas -n kube-system --template '{{.status.podIP}}')
 controlPlanePort='6443'
 
 helm template cilium cilium/cilium --version $CILIUM_VERSION \
@@ -173,7 +173,12 @@ helm template cilium cilium/cilium --version $CILIUM_VERSION \
     --set ipam.operator.clusterPoolIPv4MaskSize=24 \
     --set bpf.masquerade=true \
     --set bpf.hostLegacyRouting=false > $tempdir/cilium-workload-$CILIUM_VERSION.yaml
-$KUBECTL_DEV apply -f $tempdir/cilium-workload-$CILIUM_VERSION.yaml
+$KUBECTL_WORKLOAD apply -f $tempdir/cilium-workload-$CILIUM_VERSION.yaml
+
+$KUBECTL_WORKLOAD create secret generic flux-system -n flux-system \
+  --from-file identity=$FLUX_KEY_PATH  \
+  --from-file identity.pub=$FLUX_KEY_PATH.pub \
+  --from-literal known_hosts="$GITHUB_KNOWN_HOSTS"
 
 } # end main
 
