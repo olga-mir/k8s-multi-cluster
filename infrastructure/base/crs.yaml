@@ -1,0 +1,16 @@
+# https://pkg.go.dev/sigs.k8s.io/cluster-api@v1.1.4/exp/addons/api/v1alpha3#ClusterResourceSetSpec
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta1
+kind: ClusterResourceSet
+metadata:
+ name: crs
+spec:
+ strategy: 'ApplyOnce'
+ clusterSelector:
+   matchLabels:
+     crs: enabled
+ resources:
+   - name: override-me
+     kind: ConfigMap
+#  - name: override-me-2
+#    kind: ConfigMap

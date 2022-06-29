@@ -5,7 +5,7 @@ metadata:
   namespace: cluster-mgmt
   labels:
     cluster.x-k8s.io/cluster-name: mgmt
-    cni: calico
+    crs: enabled
 spec:
   clusterNetwork:
     pods:
@@ -31,6 +31,16 @@ spec:
   network:
     vpc:
       availabilityZoneUsageLimit: 1
+    cni:
+      cniIngressRules:
+      - description: "(cilium) VXLAN overlay"
+        protocol: udp
+        fromPort: 8472
+        toPort: 8472
+      - description: "(cilium) health checks"
+        protocol: tcp
+        fromPort: 4240
+        toPort: 4240
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
@@ -51,6 +61,8 @@ spec:
         kubeletExtraArgs:
           cloud-provider: aws
         name: '{{ ds.meta_data.local_hostname }}'
+      skipPhases:
+      - addon/kube-proxy
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
@@ -62,7 +74,7 @@ spec:
       kind: AWSMachineTemplate
       name: mgmt-control-plane
   replicas: 1
-  version: 1.22.8
+  version: 1.23.8
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
@@ -98,7 +110,7 @@ spec:
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AWSMachineTemplate
         name: mgmt-md-0
-      version: 1.22.8
+      version: 1.23.8
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
@@ -126,17 +138,3 @@ spec:
             cloud-provider: aws
             max-pods: '32'
           name: '{{ ds.meta_data.local_hostname }}'
----
-apiVersion: addons.cluster.x-k8s.io/v1beta1
-kind: ClusterResourceSet
-metadata:
- name: crs-calico
- namespace: cluster-mgmt
-spec:
- strategy: 'ApplyOnce'
- clusterSelector:
-   matchLabels:
-     cni: calico
- resources:
-   - name: calico-cni
-     kind: ConfigMap

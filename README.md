@@ -1,4 +1,4 @@
-# Multi Cluster Patterns
+# Multi Cluster Management
 
 This repository explores multi cluster technologies and is primarily based on [Cluster API](https://github.com/kubernetes-sigs/cluster-api) for declarative cluster management and [FLuxCD](https://fluxcd.io/) for GitOps workflows.
 

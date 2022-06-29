@@ -8,7 +8,7 @@ metadata:
 spec:
   interval: 1m0s
   ref:
-    branch: feature/cluster-management
+    branch: develop
   secretRef:
     name: flux-system
   url: ssh://git@github.com/olga-mir/k8s-multi-cluster
@@ -19,8 +19,8 @@ metadata:
   name: flux-system
   namespace: flux-system
 spec:
-  interval: 10m0s
-  path: ./clusters/mgmt
+  interval: 1m0s
+  path: ./clusters/staging/mgmt
   prune: true
   sourceRef:
     kind: GitRepository

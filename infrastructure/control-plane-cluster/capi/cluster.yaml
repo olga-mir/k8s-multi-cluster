@@ -5,7 +5,7 @@ metadata:
   namespace: cluster-dev
   labels:
     cluster.x-k8s.io/cluster-name: cluster-dev
-    cni: calico
+    crs: enabled
 spec:
   clusterNetwork:
     pods:
@@ -51,6 +51,8 @@ spec:
         kubeletExtraArgs:
           cloud-provider: aws
         name: '{{ ds.meta_data.local_hostname }}'
+      skipPhases:
+      - addon/kube-proxy
     joinConfiguration:
       nodeRegistration:
         kubeletExtraArgs:
@@ -126,17 +128,3 @@ spec:
             cloud-provider: aws
             max-pods: '64'
           name: '{{ ds.meta_data.local_hostname }}'
----
-apiVersion: addons.cluster.x-k8s.io/v1alpha3
-kind: ClusterResourceSet
-metadata:
- name: crs-calico
- namespace: cluster-dev
-spec:
- strategy: "ApplyOnce"
- clusterSelector:
-   matchLabels:
-     cni: calico
- resources:
-   - name: calico-cni
-     kind: ConfigMap
