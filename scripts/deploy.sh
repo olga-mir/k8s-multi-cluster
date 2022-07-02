@@ -118,6 +118,8 @@ set +e
 while ! $KUBECTL_MGMT wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
+flux suspend kustomization infrastructure
+
 # by default `kind` creates its context in default location (~/.kube/config if $KUBECONFIG is not set)
 clusterctl move --kubeconfig $HOME/.kube/config --kubeconfig-context kind-kind --to-kubeconfig=./target-mgmt.kubeconfig -n cluster-mgmt
 
