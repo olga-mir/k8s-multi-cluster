@@ -5,17 +5,16 @@ workdir=$(pwd)
 tempdir=$(mktemp -d)
 KUBECTL_MGMT="kubectl --kubeconfig $workdir/target-mgmt.kubeconfig --context mgmt"
 KUBECTL_WORKLOAD="kubectl --kubeconfig $workdir/dev.kubeconfig --context dev"
+
 CAPI_VERSION="v1.2.0-beta.0"
 
 trap 'exit_handler $? $LINENO' EXIT
 
 main() {
 
-# For more details please check docs/bootstrap-and-pivot.md doc in this repo
+# For more details about install process please check `<repo_root>/docs/bootstrap-and-pivot.md
+# For config setup check out `<repo_root>/config/README.md`
 
-# Provide env vars and other settings in $workdir/mgmt-cluster/init-config-mgmt.yaml file
-# (note that the content of the file is not validated)
-# AWS_B64ENCODED_CREDENTIALS currently accepted only from env var only.
 set +x
 if [ -z "$AWS_B64ENCODED_CREDENTIALS" ] && \
    [ -z "$FLUX_KEY_PATH" ]; then
@@ -57,7 +56,6 @@ kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 # are applied by flux. When the CRS is applied the permanent cluster should be ready to use.
 
 clusterctl init \
-  --config $workdir/mgmt-cluster/init-config-mgmt.yaml \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
@@ -73,36 +71,31 @@ while ! clusterctl get kubeconfig mgmt -n cluster-mgmt > $workdir/target-mgmt.ku
   echo $(date '+%F %H:%M:%S') re-try in 15s... && sleep 15
 done
 
+chmod go-r $workdir/target-mgmt.kubeconfig
 kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
 
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
 while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
 set -e
-kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
-controlPlaneHost=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
-controlPlanePort='6443'
 
-# https://github.com/cilium/cilium/blob/master/install/kubernetes/cilium/values.yaml
-CILIUM_VERSION=1.11.6
-helm repo add cilium https://helm.cilium.io
-helm template cilium cilium/cilium --version $CILIUM_VERSION \
-    --namespace kube-system \
-    --set kubeProxyReplacement=strict \
-    --set k8sServiceHost=$controlPlaneHost \
-    --set k8sServicePort=$controlPlanePort \
-    --set ipam.mode='cluster-pool' \
-    --set ipam.operator.clusterPoolIPv4PodCIDRList={192.168.0.0/16} \
-    --set ipam.operator.clusterPoolIPv4MaskSize=24 \
-    --set bpf.masquerade=true \
-    --set bpf.hostLegacyRouting=false > $tempdir/cilium-mgmt-$CILIUM_VERSION.yaml
-$KUBECTL_MGMT apply -f $tempdir/cilium-mgmt-$CILIUM_VERSION.yaml
+export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
+export K8S_SERVICE_PORT='6443'
+
+set +x
+. ${workdir}/config/cluster-mgmt.sh
+set -x
+
+# envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
+envsubst < ${workdir}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
+  helm install cilium cilium/cilium --version $CILIUM_VERSION \
+  --kubeconfig $workdir/target-mgmt.kubeconfig \
+  --namespace kube-system -f -
 
 sleep 30
 # check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
 
 clusterctl init --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt \
-  --config $workdir/mgmt-cluster/init-config-workload.yaml \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
@@ -144,6 +137,7 @@ while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait --context mgmt
 done
 
 clusterctl --kubeconfig=$workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt get kubeconfig dev -n cluster-dev > $workdir/dev.kubeconfig
+chmod go-r $workdir/dev.kubeconfig
 kubectl --kubeconfig=$workdir/dev.kubeconfig config rename-context dev-admin@dev dev
 
 # no need to bootstrap flux, because it is applied as part of the CRS
@@ -161,21 +155,20 @@ set +e
 echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
 while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
 set -e
-kas=$($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name)
-controlPlaneHost=$($KUBECTL_WORKLOAD get $kas -n kube-system --template '{{.status.podIP}}')
-controlPlanePort='6443'
 
-helm template cilium cilium/cilium --version $CILIUM_VERSION \
-    --namespace kube-system \
-    --set kubeProxyReplacement=strict \
-    --set k8sServiceHost=$controlPlaneHost \
-    --set k8sServicePort=$controlPlanePort \
-    --set ipam.mode='cluster-pool' \
-    --set ipam.operator.clusterPoolIPv4PodCIDRList={192.168.0.0/16} \
-    --set ipam.operator.clusterPoolIPv4MaskSize=24 \
-    --set bpf.masquerade=true \
-    --set bpf.hostLegacyRouting=false > $tempdir/cilium-workload-$CILIUM_VERSION.yaml
-$KUBECTL_WORKLOAD apply -f $tempdir/cilium-workload-$CILIUM_VERSION.yaml
+kas=$($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name)
+export K8S_SERVICE_HOST=$($KUBECTL_WORKLOAD get $kas -n kube-system --template '{{.status.podIP}}')
+export K8S_SERVICE_PORT='6443'
+
+set +x
+. ${workdir}/config/cluster-01.sh
+set -x
+
+# envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
+envsubst < ${workdir}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
+  helm install cilium cilium/cilium --version $CILIUM_VERSION \
+  --kubeconfig $workdir/cluster-01.kubeconfig \
+  --namespace kube-system -f -
 
 $KUBECTL_WORKLOAD create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
