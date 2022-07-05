@@ -6,11 +6,14 @@ tempdir=$(mktemp -d)
 KUBECTL_MGMT="kubectl --kubeconfig $workdir/target-mgmt.kubeconfig --context mgmt"
 KUBECTL_WORKLOAD="kubectl --kubeconfig $workdir/dev.kubeconfig --context dev"
 
-CAPI_VERSION="v1.2.0-beta.0"
-
 trap 'exit_handler $? $LINENO' EXIT
 
 main() {
+
+set +x
+. ${workdir}/config/shared.sh
+. ${workdir}/config/cluster-mgmt.sh
+set -x
 
 # For more details about install process please check `<repo_root>/docs/bootstrap-and-pivot.md
 # For config setup check out `<repo_root>/config/README.md`
@@ -35,10 +38,6 @@ kind create cluster --config $tempdir/kind-bootstrap.yaml
 # Install Flux.
 kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-components.yaml
 
-# https://github.blog/changelog/2022-01-18-githubs-ssh-host-keys-are-now-published-in-the-api/
-# curl -H "Accept: application/vnd.github.v3+json" -s https://api.github.com/meta | jq -r '.ssh_keys'
-# select the one that starts with "ecdsa-sha2-nistp256"
-GITHUB_KNOWN_HOSTS="github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg="
 kubectl create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
   --from-file identity.pub=$FLUX_KEY_PATH.pub \
@@ -61,8 +60,8 @@ clusterctl init \
   --control-plane kubeadm:$CAPI_VERSION \
   --infrastructure aws
 
-############## ------ on AWS mgmt cluster ------
 
+############## ------ on AWS mgmt cluster ------
 
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
@@ -81,10 +80,6 @@ set -e
 
 export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
 export K8S_SERVICE_PORT='6443'
-
-set +x
-. ${workdir}/config/cluster-mgmt.sh
-set -x
 
 # envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
 envsubst < ${workdir}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
@@ -127,6 +122,7 @@ clusterctl move --kubeconfig $HOME/.kube/config --kubeconfig-context kind-kind -
 # to delete mgmt and all workload clusters in parallel
 # kind delete cluster
 
+
 ############## ------ Workload cluster bootstrap ------
 
 # Once Flux is bootstrapped on the cluster it will apply cluster-dev CAPI definition and workload cluster will start provisioning
@@ -140,17 +136,6 @@ clusterctl --kubeconfig=$workdir/target-mgmt.kubeconfig --kubeconfig-context mgm
 chmod go-r $workdir/dev.kubeconfig
 kubectl --kubeconfig=$workdir/dev.kubeconfig config rename-context dev-admin@dev dev
 
-# no need to bootstrap flux, because it is applied as part of the CRS
-
-# this is not applied as a CRS because the API server IP is known at runtime
-# but babysitting each cluster in bash script defeating the purpose of CAPI.
-# Alternatives:
-# let it install via CRS without KAS IP and kubectl apply it once it is known
-# this is stinky because it is still bash babysitting, also because it relies
-# on the fact that CRS is not going to implement anything other than 'ApplyOnce'
-# BYO infra including ELB and provide that ELB name for KAS location as part of CRS.
-# Not tested if ELB DNS name will be good enough for `k8sServiceHost`
-# and BYO infra is a lot of work
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
 while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
