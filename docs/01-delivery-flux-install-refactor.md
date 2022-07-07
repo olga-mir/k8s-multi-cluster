@@ -9,7 +9,7 @@ Capture decision points why certain things were done in certain ways and documen
 * remove manual install of resources on the temporary mgmt cluster by using flux on that cluster too.
 * replace `flux bootstrap` with `flux install` so that deploy keys with write permissions are not used.
 * install flux by using output of `flux install` as input for CAPI `ClusterResourceSet`
-* rename cluster-dev to "identity-less" cluster in a certaing environment for blue/green deployments.
+* rename cluster-dev to "identity-less" cluster in a given environment for blue/green deployments.
 * create a script that packages CNI and flux as CRS manifests.
 
 This should speed up cluster creation, simplify deploy script, remove manual step of ack giving permission to flux to write to repo during `flux bootstrap` command execution, remove the need for deploy keys with write perms (at the cost of externally managing flux version upgrades, e.g in [flux GA](https://github.com/fluxcd/flux2/tree/main/action#automate-flux-updates)
