@@ -3,7 +3,7 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   name: "${CLUSTER_NAME}"
-  namespace: "cluster-${CLUSTER_NAME}"
+  namespace: "${CLUSTER_NAME}"
   labels:
     cluster.x-k8s.io/cluster-name: "${CLUSTER_NAME}"
     crs: enabled
@@ -24,7 +24,7 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSCluster
 metadata:
   name: "${CLUSTER_NAME}"
-  namespace: "cluster-${CLUSTER_NAME}"
+  namespace: "${CLUSTER_NAME}"
 spec:
   region: "${AWS_REGION}"
   sshKeyName: "${AWS_SSH_KEY_NAME}"
@@ -46,7 +46,7 @@ kind: KubeadmControlPlane
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 metadata:
   name: "${CLUSTER_NAME}-control-plane"
-  namespace: "cluster-${CLUSTER_NAME}"
+  namespace: "-${CLUSTER_NAME}"
 spec:
   replicas: ${CONTROL_PLANE_MACHINE_COUNT}
   machineTemplate:
@@ -80,7 +80,7 @@ kind: AWSMachineTemplate
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 metadata:
   name: "${CLUSTER_NAME}-control-plane"
-  namespace: "cluster-${CLUSTER_NAME}"
+  namespace: "${CLUSTER_NAME}"
 spec:
   template:
     spec:
@@ -92,7 +92,7 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
   name: "${CLUSTER_NAME}-md-0"
-  namespace: "cluster-${CLUSTER_NAME}"
+  namespace: "${CLUSTER_NAME}"
 spec:
   clusterName: "${CLUSTER_NAME}"
   replicas: ${WORKER_MACHINE_COUNT}
@@ -116,7 +116,7 @@ apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
 metadata:
   name: "${CLUSTER_NAME}-md-0"
-  namespace: "cluster-${CLUSTER_NAME}"
+  namespace: "${CLUSTER_NAME}"
 spec:
   template:
     spec:
@@ -128,7 +128,7 @@ apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
   name: "${CLUSTER_NAME}-md-0"
-  namespace: "cluster-${CLUSTER_NAME}"
+  namespace: "${CLUSTER_NAME}"
 spec:
   template:
     spec:

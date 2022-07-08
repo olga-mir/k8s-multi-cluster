@@ -76,7 +76,8 @@ create() {
   set -x
 
   cluster_dir=$REPO_ROOT/infrastructure/control-plane-cluster/$CLUSTER_NAME
-  mkdir $cluster_dir # fail if this already exists
+  # if directory already exists, then this can be used as a way to upgrade contents
+  mkdir -p $cluster_dir
 
   envsubst < $REPO_ROOT/templates/capi-workload-kustomization.yaml > $cluster_dir/kustomization.yaml
   envsubst < $REPO_ROOT/templates/capi-workload-namespace.yaml > $cluster_dir/namespace.yaml
@@ -98,6 +99,9 @@ create() {
   # now we can put this in CM. (k create cm accepts --from-<whatever> multiple times,
   # but it creates a separate data entry for each occurence, that's why concatenating file was necessary
   kubectl create configmap crs-cm-flux-${FLUXCD_VERSION} --from-file=$flux_crs -n $CLUSTER_NAME --dry-run=client -o yaml > $cluster_dir/crs-cm-flux-${FLUXCD_VERSION}.yaml
+
+  # TODO - add new cluster dir to kustomization.yaml
+  # $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml
 
 }
 
@@ -134,7 +138,8 @@ finalize_cluster() {
     --kubeconfig $kubeconfig \
     --namespace kube-system -f -
 
-  # on existing clusters flux is installed via CRS, so no need to do it in script
+  # on clusters that already existed in the git repo before deploying
+  # flux is installed via CRS, so no need to do it in script
   kubectl --kubeconfig=$kubeconfig create secret generic flux-system -n flux-system \
     --from-file identity=$FLUX_KEY_PATH  \
     --from-file identity.pub=$FLUX_KEY_PATH.pub \
