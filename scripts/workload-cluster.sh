@@ -82,7 +82,7 @@ create() {
   envsubst < $REPO_ROOT/templates/capi-workload-namespace.yaml > $cluster_dir/namespace.yaml
   envsubst < $REPO_ROOT/templates/aws/cluster.yaml > $cluster_dir/cluster.yaml
 
-  # I don't want to give flux deploy key with write permissions, therefore 'dootstrap' is not an option
+  # I don't want to give flux deploy key with write permissions, therefore 'bootstrap' is not an option
   # 'flux install --export' does not have options to generate gotk-sync.yaml, so instead this will be
   # instantiated from template
   # This is only needed when adding a cluster for the first time to the repo. On the following invocations, flux is deployed as CRS
