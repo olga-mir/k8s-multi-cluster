@@ -15,7 +15,7 @@ patches:
   patch: |-
     - op: add
       path: /metadata/namespace
-      value: cluster-dev
+      value: cluster-01
     - op: replace
       path: /spec/resources/0/name
       value: crs-cm-flux-0.30.1-workload
