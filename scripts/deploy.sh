@@ -11,8 +11,8 @@ trap 'exit_handler $? $LINENO' EXIT
 main() {
 
 set +x
-. ${workdir}/config/shared.sh
-. ${workdir}/config/cluster-mgmt.sh
+. ${workdir}/config/shared.env
+. ${workdir}/config/cluster-mgmt.env
 set -x
 
 # For more details about install process please check `<repo_root>/docs/bootstrap-and-pivot.md
@@ -122,43 +122,7 @@ clusterctl move --kubeconfig $HOME/.kube/config --kubeconfig-context kind-kind -
 # to delete mgmt and all workload clusters in parallel
 # kind delete cluster
 
-
-############## ------ Workload cluster bootstrap ------
-
-# Once Flux is bootstrapped on the cluster it will apply cluster-dev CAPI definition and workload cluster will start provisioning
-sleep 90
-while ! kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig wait --context mgmt --for condition=ResourcesApplied=True clusterresourceset crs -n cluster-dev --timeout=15s ; do
-  echo $(date '+%F %H:%M:%S') waiting for workload cluster to become ready
-  sleep 15
-done
-
-clusterctl --kubeconfig=$workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt get kubeconfig dev -n cluster-dev > $workdir/dev.kubeconfig
-chmod go-r $workdir/dev.kubeconfig
-kubectl --kubeconfig=$workdir/dev.kubeconfig config rename-context dev-admin@dev dev
-
-set +e
-echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
-while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
-set -e
-
-kas=$($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name)
-export K8S_SERVICE_HOST=$($KUBECTL_WORKLOAD get $kas -n kube-system --template '{{.status.podIP}}')
-export K8S_SERVICE_PORT='6443'
-
-set +x
-. ${workdir}/config/cluster-01.sh
-set -x
-
-# envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
-envsubst < ${workdir}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
-  helm install cilium cilium/cilium --version $CILIUM_VERSION \
-  --kubeconfig $workdir/cluster-01.kubeconfig \
-  --namespace kube-system -f -
-
-$KUBECTL_WORKLOAD create secret generic flux-system -n flux-system \
-  --from-file identity=$FLUX_KEY_PATH  \
-  --from-file identity.pub=$FLUX_KEY_PATH.pub \
-  --from-literal known_hosts="$GITHUB_KNOWN_HOSTS"
+# To finalize workload clusters bootstrap follow `$REPO_ROOT/scripts/workload-cluster.sh -h` instructions
 
 } # end main
 
