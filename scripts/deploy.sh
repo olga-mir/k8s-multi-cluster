@@ -65,20 +65,21 @@ clusterctl init \
 
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
-sleep 60
-while ! clusterctl get kubeconfig mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig ; do
-  echo $(date '+%F %H:%M:%S') re-try in 15s... && sleep 15
+sleep 90
+while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig ; do
+  echo $(date '+%F %H:%M:%S') re-try in 25s... && sleep 25
 done
 
 chmod go-r $workdir/target-mgmt.kubeconfig
-kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context mgmt-admin@mgmt mgmt
+kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context cluster-mgmt-admin@cluster-mgmt mgmt
 
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
-while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
+while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 15; done
 set -e
 
 kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
+sleep 10 # a little more time for IP to be set in status
 export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
 export K8S_SERVICE_PORT='6443'
 
@@ -88,7 +89,6 @@ envsubst < ${workdir}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
   --kubeconfig $workdir/target-mgmt.kubeconfig \
   --namespace kube-system -f -
 
-sleep 30
 # check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
 
 clusterctl init --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt \
@@ -107,7 +107,7 @@ set +e
 while ! $KUBECTL_MGMT wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
-flux suspend kustomization infrastructure
+flux --context kind-kind suspend kustomization infrastructure
 
 # by default `kind` creates its context in default location (~/.kube/config if $KUBECONFIG is not set)
 clusterctl move --kubeconfig $HOME/.kube/config --kubeconfig-context kind-kind --to-kubeconfig=./target-mgmt.kubeconfig -n cluster-mgmt

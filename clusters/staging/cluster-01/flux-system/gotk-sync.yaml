@@ -21,7 +21,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m0s
-  path: 
+  path: ./infrastructure/workload-clusters
   prune: true
   sourceRef:
     kind: GitRepository

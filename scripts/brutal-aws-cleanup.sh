@@ -19,8 +19,9 @@ for n in ${nat_gateways[@]}; do
   aws ec2 delete-nat-gateway --nat-gateway-id $n
 done
 
-aws elb delete-load-balancer --load-balancer-name=mgmt-apiserver
-sleep 60
+aws elb delete-load-balancer --load-balancer-name=cluster-mgmt-apiserver
+aws elb delete-load-balancer --load-balancer-name=cluster-01-apiserver
+sleep 40
 
 eips=$(aws ec2 describe-addresses --query "Addresses[].AllocationId" --output=text)
 for i in ${eips[@]}; do

@@ -27,7 +27,7 @@ metadata:
   name: "cluster-01"
   namespace: "cluster-01"
 spec:
-  region: ""
+  region: "ap-southeast-2"
   sshKeyName: "cks"
   network:
     vpc:

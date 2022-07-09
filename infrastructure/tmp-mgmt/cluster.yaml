@@ -27,8 +27,8 @@ metadata:
   name: "cluster-mgmt"
   namespace: "cluster-mgmt"
 spec:
-  region: ""
-  sshKeyName: ""
+  region: "ap-southeast-2"
+  sshKeyName: "cks"
   network:
     vpc:
       availabilityZoneUsageLimit: 1
@@ -87,7 +87,7 @@ spec:
     spec:
       instanceType: "t3.medium"
       iamInstanceProfile: "control-plane.cluster-api-provider-aws.sigs.k8s.io"
-      sshKeyName: ""
+      sshKeyName: "cks"
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
@@ -123,7 +123,7 @@ spec:
     spec:
       instanceType: "t3.medium"
       iamInstanceProfile: "nodes.cluster-api-provider-aws.sigs.k8s.io"
-      sshKeyName: ""
+      sshKeyName: "cks"
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
