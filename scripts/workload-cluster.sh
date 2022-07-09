@@ -32,8 +32,8 @@ while [[ $# -gt 0 ]]; do
     -k|--management-cluster-kubeconfig)
       MGMT_CFG=$2; shift
       ;;
-    -f|--config-file)
-      CONFIG_FILE=$2; shift
+    -n|--cluster-name)
+      CLUSTER_NAME_ARG=$2; shift
       ;;
     -h|--help)
       show_help
@@ -57,12 +57,15 @@ if [ -z "$MGMT_CFG" ]; then
   MGMT_CFG="$HOME/.kube/config"
   KUBECTL_MGMT="kubectl --kubeconfig $MGMT_CFG --context $MGMT_CTX"
 fi
-if [ -z "$CONFIG_FILE" ]; then
-  # config file must be $REPO_ROOT/config/<cluster>.env
-  echo Cluster config file not provided - will finalize existing workload clusters.
+if [ -z "$CLUSTER_NAME_ARG" ]; then
   finalize
 else
-  echo Create cluster from $CONFIG_FILE
+  echo Create cluster
+  CONFIG_FILE=$REPO_ROOT/config/$CLUSTER_NAME_ARG.env
+  if [ ! -f "$CONFIG_FILE" ]; then
+    echo Cluster must have config file $CONFIG_FILE && exit 1
+  fi
+  echo Cluster config file not provided - will finalize existing workload clusters.
   create
 fi
 
@@ -75,33 +78,35 @@ create() {
   . $CONFIG_FILE
   set -x
 
-  cluster_dir=$REPO_ROOT/infrastructure/control-plane-cluster/$CLUSTER_NAME
+  infra_dir=$REPO_ROOT/infrastructure/control-plane-cluster/$CLUSTER_NAME
   # if directory already exists, then this can be used as a way to upgrade contents
-  mkdir -p $cluster_dir
+  mkdir -p $infra_dir
 
-  envsubst < $REPO_ROOT/templates/capi-workload-kustomization.yaml > $cluster_dir/kustomization.yaml
-  envsubst < $REPO_ROOT/templates/capi-workload-namespace.yaml > $cluster_dir/namespace.yaml
-  envsubst < $REPO_ROOT/templates/aws/cluster.yaml > $cluster_dir/cluster.yaml
+  envsubst < $REPO_ROOT/templates/capi-workload-kustomization.yaml > $infra_dir/kustomization.yaml
+  envsubst < $REPO_ROOT/templates/capi-workload-namespace.yaml > $infra_dir/namespace.yaml
+  envsubst < $REPO_ROOT/templates/aws/cluster.yaml > $infra_dir/cluster.yaml
 
   # I don't want to give flux deploy key with write permissions, therefore 'bootstrap' is not an option
   # 'flux install --export' does not have options to generate gotk-sync.yaml, so instead this will be
   # instantiated from template
   # This is only needed when adding a cluster for the first time to the repo. On the following invocations, flux is deployed as CRS
   flux_crs=$tempdir/flux-combined.yaml
-  dest_dir=$REPO_ROOT/clusters/staging/${CLUSTER_NAME}/flux-system
-  mkdir -p $dest_dir
-  flux install --version=$FLUXCD_VERSION --export > $dest_dir/gotk-components.yaml
-  envsubst < $REPO_ROOT/templates/gotk-sync.yaml > $dest_dir/gotk-sync.yaml
-  cp $dest_dir/gotk-components.yaml $flux_crs
+  cluster_dir=$REPO_ROOT/clusters/staging/${CLUSTER_NAME}/flux-system
+  mkdir -p $cluster_dir
+  flux install --version=$FLUXCD_VERSION --export > $cluster_dir/gotk-components.yaml
+  envsubst < $REPO_ROOT/templates/gotk-sync.yaml > $cluster_dir/gotk-sync.yaml
+  cp $cluster_dir/gotk-components.yaml $flux_crs
   echo "---" >> $flux_crs
-  cat $dest_dir/gotk-sync.yaml >> $flux_crs
+  cat $cluster_dir/gotk-sync.yaml >> $flux_crs
 
   # now we can put this in CM. (k create cm accepts --from-<whatever> multiple times,
   # but it creates a separate data entry for each occurence, that's why concatenating file was necessary
-  kubectl create configmap crs-cm-flux-${FLUXCD_VERSION} --from-file=$flux_crs -n $CLUSTER_NAME --dry-run=client -o yaml > $cluster_dir/crs-cm-flux-${FLUXCD_VERSION}.yaml
+  kubectl create configmap crs-cm-flux-${FLUXCD_VERSION} --from-file=$flux_crs -n $CLUSTER_NAME --dry-run=client -o yaml > $infra_dir/crs-cm-flux-${FLUXCD_VERSION}.yaml
 
-  # TODO - add new cluster dir to kustomization.yaml
-  # $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml
+  yq eval ". *+ {\"resources\":[\"$CLUSTER_NAME\"]}" $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml --inplace
+
+  git add $infra_dir
+  git add $cluster_dir
 
 }
 
@@ -166,9 +171,10 @@ show_help() {
   echo Usage:
   echo "-k|--management-cluster-kubeconfig - optional, management cluster kubeconfig, default $HOME/.kube/config"
   echo "-m|--management-cluster-context - optional, management cluster kubeconfig context"
-  echo "-f|--config-file - optional, if provided this must be a config file in $REPO_ROOT/config. In this case"
-  echo "  the script will generate payload for the cluster and commit it to the repo, from where"
-  echo "  it will be synced by flux on the management cluster"
+  echo "-n|--cluster-name - optional, if provided, a config file in $REPO_ROOT/config/<cluster_name>.env must exist."
+  echo "  In this case, the script will generate all required manifest for the new cluster and commit it to the repo"
+  echo "  then it will be synced by flux on the management cluster, and the script will wait until this cluster is"
+  echo "  up and running and will finalize the installation (cni, and flux secret)"
   exit 0
 }
 
