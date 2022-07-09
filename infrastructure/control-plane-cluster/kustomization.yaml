@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - kubefed
   - cluster-01
+  - cluster-02
