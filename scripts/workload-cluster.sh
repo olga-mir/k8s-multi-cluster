@@ -95,6 +95,8 @@ create() {
   mkdir -p $cluster_dir
   flux install --version=$FLUXCD_VERSION --export > $cluster_dir/gotk-components.yaml
   envsubst < $REPO_ROOT/templates/gotk-sync.yaml > $cluster_dir/gotk-sync.yaml
+  generate_kustomizations $cluster_dir/kustomization.yaml clusters/staging/$CLUSTER_NAME/kustomization.yaml
+
   cp $cluster_dir/gotk-components.yaml $flux_crs
   echo "---" >> $flux_crs
   cat $cluster_dir/gotk-sync.yaml >> $flux_crs
@@ -103,7 +105,9 @@ create() {
   # but it creates a separate data entry for each occurence, that's why concatenating file was necessary
   kubectl create configmap crs-cm-flux-${FLUXCD_VERSION} --from-file=$flux_crs -n $CLUSTER_NAME --dry-run=client -o yaml > $infra_dir/crs-cm-flux-${FLUXCD_VERSION}.yaml
 
-  yq eval ". *+ {\"resources\":[\"$CLUSTER_NAME\"]}" $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml --inplace
+  if [ -z "$(grep $CLUSTER_NAME $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml)" ]; then
+    yq eval ". *+ {\"resources\":[\"$CLUSTER_NAME\"]}" $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml --inplace
+  fi
 
   git add $infra_dir
   git add $cluster_dir
@@ -163,6 +167,28 @@ finalize() {
       finalize_cluster $cluster $ns
     fi
   done
+}
+
+generate_kustomizations() {
+  local flux_kustomization_filepath=$1
+  local infra_kustomization_filepath=$2
+
+cat > $flux_kustomization_filepath << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- gotk-components.yaml
+- gotk-sync.yaml
+EOF
+
+cat > $infra_kustomization_filepath << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../base/infrastructure-workload.yaml
+- ../base/tenants.yaml
+EOF
+
 }
 
 show_help() {
