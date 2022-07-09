@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - cluster.yaml
-  - crs-cm-flux-0.30.1-workload.yaml
+  - crs-cm-flux-0.30.1.yaml
   - ../../base/crs.yaml
 
 patches:
@@ -18,7 +18,7 @@ patches:
       value: cluster-01
     - op: replace
       path: /spec/resources/0/name
-      value: crs-cm-flux-0.30.1-workload
+      value: crs-cm-flux-0.30.1
     - op: replace
       path: /spec/resources/0/kind
       value: ConfigMap
