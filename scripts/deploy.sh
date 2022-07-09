@@ -78,6 +78,7 @@ echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become
 while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
 set -e
 
+kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
 export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
 export K8S_SERVICE_PORT='6443'
 

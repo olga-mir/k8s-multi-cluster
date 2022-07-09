@@ -9,7 +9,7 @@ REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 tempdir=$(mktemp -d)
 
 # Management cluster kube config and context
-MGMT_CTX=""
+MGMT_CTX="mgmt"
 MGMT_CFG="" # default $HOME/.kube/config
 
 # cluster config file containing all settings required for
@@ -19,8 +19,7 @@ CONFIG_FILE=""
 # kubectl configured to talk to management cluster, based on use input
 KUBECTL_MGMT=""
 
-# kubectl configured to talk to a workload cluster, based on discovery
-KUBECTL=""
+CLUSTER_NAME_ARG=""
 
 main() {
 
@@ -58,6 +57,7 @@ if [ -z "$MGMT_CFG" ]; then
   KUBECTL_MGMT="kubectl --kubeconfig $MGMT_CFG --context $MGMT_CTX"
 fi
 if [ -z "$CLUSTER_NAME_ARG" ]; then
+  echo Finalize existing workload clusters
   finalize
 else
   echo Create cluster
@@ -112,14 +112,18 @@ create() {
   git add $infra_dir
   git add $cluster_dir
 
+  git commit -m "add generated files for $CLUSTER_NAME"
+  git push origin $GITHUB_BRANCH
+
+  finalize_cluster $CLUSTER_NAME
 }
 
 finalize_cluster() {
   local cluster=$1
-  local ns=$2
+  local ns=$cluster
   echo Finalizing cluster $cluster in $ns namespace
 
-  while ! $KUBECTL_MGMT wait --context mgmt --for condition=ResourcesApplied=True clusterresourceset crs -n cluster-dev --timeout=15s ; do
+  while ! $KUBECTL_MGMT wait --for condition=ResourcesApplied=True clusterresourceset crs -n $ns --timeout=15s ; do
     echo $(date '+%F %H:%M:%S') waiting for workload cluster to become ready
     sleep 15
   done
@@ -128,6 +132,7 @@ finalize_cluster() {
   clusterctl --kubeconfig=$MGMT_CFG --kubeconfig-context $MGMT_CTX get kubeconfig $cluster -n $ns > $kubeconfig
   chmod go-r $kubeconfig
 
+  KUBECTL_WORKLOAD="kubectl --kubeconfig $kubeconfig --context admin@$CLUSTER_NAME"
   set +e
   echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
   while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 10; done
@@ -157,14 +162,11 @@ finalize_cluster() {
 
 # Discover workload clusters and complete setup if required.
 finalize() {
-  clusters=$($KUBECTL_MGMT get clusters -A --no-headers=true)
-  # example line:
-  # cluster-01    dev    Provisioned   50m
+  clusters=$($KUBECTL_MGMT get clusters -A --no-headers=true -o name)
   for line in $clusters; do
-    cluster=$(echo $line | awk '{print $1}')
-    ns=$(echo $line | awk '{print $2}')
+    cluster=$(echo $line |  cut -d'/' -f 2)
     if :; then # if required then
-      finalize_cluster $cluster $ns
+      finalize_cluster $cluster
     fi
   done
 }
