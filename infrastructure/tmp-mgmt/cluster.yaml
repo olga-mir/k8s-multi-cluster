@@ -1,33 +1,34 @@
+---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
-  name: mgmt
-  namespace: cluster-mgmt
+  name: "cluster-mgmt"
+  namespace: "cluster-mgmt"
   labels:
-    cluster.x-k8s.io/cluster-name: mgmt
+    cluster.x-k8s.io/cluster-name: "cluster-mgmt"
     crs: enabled
 spec:
   clusterNetwork:
     pods:
       cidrBlocks:
-      - 192.168.0.0/16
-  controlPlaneRef:
-    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
-    kind: KubeadmControlPlane
-    name: mgmt-control-plane
+      - "192.168.0.0/20"
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AWSCluster
-    name: mgmt
+    name: "cluster-mgmt"
+  controlPlaneRef:
+    kind: KubeadmControlPlane
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    name: "cluster-mgmt-control-plane"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSCluster
 metadata:
-  name: mgmt
-  namespace: cluster-mgmt
+  name: "cluster-mgmt"
+  namespace: "cluster-mgmt"
 spec:
-  region: ap-southeast-2
-  sshKeyName: cks
+  region: "ap-southeast-2"
+  sshKeyName: "cks"
   network:
     vpc:
       availabilityZoneUsageLimit: 1
@@ -42,13 +43,26 @@ spec:
         fromPort: 4240
         toPort: 4240
 ---
-apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KubeadmControlPlane
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 metadata:
-  name: mgmt-control-plane
-  namespace: cluster-mgmt
+  name: "cluster-mgmt-control-plane"
+  namespace: "cluster-mgmt"
 spec:
+  replicas: 1
+  machineTemplate:
+    infrastructureRef:
+      kind: AWSMachineTemplate
+      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
+      name: "cluster-mgmt-control-plane"
   kubeadmConfigSpec:
+    initConfiguration:
+      nodeRegistration:
+        name: '{{ ds.meta_data.local_hostname }}'
+        kubeletExtraArgs:
+          cloud-provider: aws
+      skipPhases:
+      - addon/kube-proxy
     clusterConfiguration:
       apiServer:
         extraArgs:
@@ -56,85 +70,72 @@ spec:
       controllerManager:
         extraArgs:
           cloud-provider: aws
-    initConfiguration:
-      nodeRegistration:
-        kubeletExtraArgs:
-          cloud-provider: aws
-        name: '{{ ds.meta_data.local_hostname }}'
-      skipPhases:
-      - addon/kube-proxy
     joinConfiguration:
       nodeRegistration:
+        name: '{{ ds.meta_data.local_hostname }}'
         kubeletExtraArgs:
           cloud-provider: aws
-        name: '{{ ds.meta_data.local_hostname }}'
-  machineTemplate:
-    infrastructureRef:
-      apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-      kind: AWSMachineTemplate
-      name: mgmt-control-plane
-  replicas: 1
-  version: 1.23.8
+  version: "1.23.8"
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
+apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 metadata:
-  name: mgmt-control-plane
-  namespace: cluster-mgmt
+  name: "cluster-mgmt-control-plane"
+  namespace: "cluster-mgmt"
 spec:
   template:
     spec:
-      iamInstanceProfile: control-plane.cluster-api-provider-aws.sigs.k8s.io
-      instanceType: t3.medium
-      sshKeyName: cks
+      instanceType: "t3.medium"
+      iamInstanceProfile: "control-plane.cluster-api-provider-aws.sigs.k8s.io"
+      sshKeyName: "cks"
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
-  name: mgmt-md-0
-  namespace: cluster-mgmt
+  name: "cluster-mgmt-md-0"
+  namespace: "cluster-mgmt"
 spec:
-  clusterName: mgmt
+  clusterName: "cluster-mgmt"
   replicas: 1
   selector:
-    matchLabels: null
+    matchLabels:
   template:
     spec:
+      clusterName: "cluster-mgmt"
+      version: "1.23.8"
       bootstrap:
         configRef:
+          name: "cluster-mgmt-md-0"
           apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
           kind: KubeadmConfigTemplate
-          name: mgmt-md-0
-      clusterName: mgmt
       infrastructureRef:
+        name: "cluster-mgmt-md-0"
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AWSMachineTemplate
-        name: mgmt-md-0
-      version: 1.23.8
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
 metadata:
-  name: mgmt-md-0
-  namespace: cluster-mgmt
+  name: "cluster-mgmt-md-0"
+  namespace: "cluster-mgmt"
 spec:
   template:
     spec:
-      iamInstanceProfile: nodes.cluster-api-provider-aws.sigs.k8s.io
-      instanceType: t3.medium
-      sshKeyName: cks
+      instanceType: "t3.medium"
+      iamInstanceProfile: "nodes.cluster-api-provider-aws.sigs.k8s.io"
+      sshKeyName: "cks"
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
-  name: mgmt-md-0
-  namespace: cluster-mgmt
+  name: "cluster-mgmt-md-0"
+  namespace: "cluster-mgmt"
 spec:
   template:
     spec:
       joinConfiguration:
         nodeRegistration:
+          name: '{{ ds.meta_data.local_hostname }}'
           kubeletExtraArgs:
             cloud-provider: aws
-            max-pods: '32'
-          name: '{{ ds.meta_data.local_hostname }}'
+            max-pods: '64'

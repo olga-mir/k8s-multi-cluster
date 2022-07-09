@@ -18,6 +18,6 @@ set -x
 # backup previous kubeconfig, this is also needed for merge: can't read and redirect to the same place in one command
 temp_kubeconfig=$HOME/.kube/config-$(date +%F_%H_%M_%S)
 cp $HOME/.kube/config $temp_kubeconfig
-KUBECONFIG=$workdir/target-mgmt.kubeconfig:$workdir/dev.kubeconfig:$temp_kubeconfig kubectl config view --raw=true --merge=true > $HOME/.kube/config
+KUBECONFIG=$workdir/target-mgmt.kubeconfig:$workdir/cluster-01.kubeconfig:$temp_kubeconfig kubectl config view --raw=true --merge=true > $HOME/.kube/config
 
 # clusterctl get kubeconfig dev -n cluster-dev > dev.kubeconfig
