@@ -52,6 +52,15 @@ tls:
 #   - geneve
 tunnel: "vxlan"
 
+# https://docs.cilium.io/en/v1.11/gettingstarted/hubble_setup/
+hubble:
+  # -- Enable Hubble (true by default).
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: true
+
 clustermesh:
   # -- Deploy clustermesh-apiserver for clustermesh
   useAPIServer: false
