@@ -1,47 +1,41 @@
 #!/bin/bash
-set -x
 workdir=$(pwd)
 
-# This script assumes it runs on the same setup as deployed by other scripts in this repo.
-# The following contexts are expected to be available in kubeconfig (use ./scripts/merge-kubeconfig.sh) to merge all in one
-# CURRENT   NAME            CLUSTER     AUTHINFO     NAMESPACE
-# *         dev             dev         dev-admin
-#           kind-kind       kind-kind   kind-kind
-#           mgmt            mgmt        mgmt-admin
+echo "This script will delete all the clusters that can be found in management cluster"
+echo "in 'mgmt' kubeconfig context by deleting (delete is performed by CAPI)"
+echo "Press ^C if this is not intentional. Sleeping 5s"
+sleep 5
 
-if [[ -z "$ACCEPT_CLEANUP_T_AND_C" ]]; then
-  echo "ERROR"
-  echo "ERROR  Please make sure you understand what is being deleted by this script."
-  echo "ERROR  Set ACCEPT_CLEANUP_T_AND_C to any non zero value and re-run."
-  exit 1
-fi
-
-echo "---- Switching to mgmt cluster"
-kubectl config use-context mgmt
-
+set -x
 echo Suspend CAPI sources reconciliation.
-flux suspend kustomization infrastructure
+flux --context mgmt suspend kustomization infrastructure
 
-echo $(date '+%F %H:%M:%S')
-clusterctl move --to-kubeconfig=$HOME/.kube/config --to-kubeconfig-context=kind-kind -n cluster-dev
-clusterctl move --to-kubeconfig=$HOME/.kube/config --to-kubeconfig-context=kind-kind -n cluster-mgmt
+KUBECTL_MGMT="kubectl --context mgmt"
+echo $(date '+%F %H:%M:%S') Moving all clusters back to 'kind' cluster
+clusters=$($KUBECTL_MGMT get clusters -A --no-headers=true -o name)
+for line in $clusters; do
+  cluster=$(echo $line |  cut -d'/' -f 2)
+  clusterctl move --kubeconfig-context mgmt --to-kubeconfig=$HOME/.kube/config --to-kubeconfig-context=kind-kind -n $cluster
+done
+sleep 15
 
 echo "---- Switching to 'kind' cluster"
-kubectl config use-context kind-kind
-flux suspend kustomization infrastructure
-kubectl delete cluster mgmt -n cluster-mgmt &
-kubectl delete cluster dev -n cluster-dev &
+flux --context kind-kind suspend kustomization infrastructure
+
+KUBECTL_KIND="kubectl --context kind-kind"
+for line in $clusters; do
+  cluster=$(echo $line |  cut -d'/' -f 2)
+  $KUBECTL_KIND delete cluster $cluster -n $cluster &
+done
 
 echo $(date '+%F %H:%M:%S')
 sleep 300
 
-while kubectl get cluster mgmt -n cluster-mgmt; do
-  sleep 60
-done
-
-echo $(date '+%F %H:%M:%S')
-while kubectl get cluster dev -n cluster-dev; do
-  sleep 30
+for line in $clusters; do
+  cluster=$(echo $line |  cut -d'/' -f 2)
+  while $KUBECTL_KIND get cluster $cluster -n $cluster; do
+    sleep 60
+  done
 done
 
 kind delete cluster
