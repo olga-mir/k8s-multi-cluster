@@ -118,10 +118,12 @@ generate_and_push_manifests() {
     yq eval ". *+ {\"resources\":[\"$CLUSTER_NAME\"]}" $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml --inplace
   fi
 
-  if false; then
+  #if false; then
+  if :; then
     git add $infra_dir
     git add $cluster_dir
-    git commit -m "add generated files for $CLUSTER_NAME"
+    git add $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml
+    git commit -m "feat: add or update generated files for $CLUSTER_NAME"
     git push origin $GITHUB_BRANCH
   fi
 }
