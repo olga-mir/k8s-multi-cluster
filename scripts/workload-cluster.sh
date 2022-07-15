@@ -5,7 +5,7 @@ set -euo pipefail
 # finalize workload cluster(s) bootstrap or create a new workload cluster.
 # run `./<repo_root>/scripts/workload-cluster.sh -h` to learn more.
 
-REPO_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
+REPO_ROOT=$(git rev-parse --show-toplevel)
 tempdir=$(mktemp -d)
 
 # Management cluster kube config and context
@@ -55,7 +55,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$MGMT_CTX" ]; then
-  echo Management cluster context is required # && exit 1
+  echo Management context name not provided, will be using deafult $MGMT_CTX
 fi
 if [ -z "$MGMT_CFG" ]; then
   echo Management cluster kubeconfing not provided, $HOME/.kube/config is assumed
@@ -206,15 +206,23 @@ EOF
 }
 
 show_help() {
-  echo Bootstrap a new workload cluster or finalise
-  echo installation of existing CAPI workload clusters
-  echo Usage:
-  echo "-k|--management-cluster-kubeconfig - optional, management cluster kubeconfig, default $HOME/.kube/config"
-  echo "-m|--management-cluster-context - optional, management cluster kubeconfig context"
-  echo "-n|--cluster-name - optional, if provided, a config file in $REPO_ROOT/config/<cluster_name>.env must exist."
-  echo "  In this case, the script will generate all required manifest for the new cluster and commit it to the repo"
-  echo "  then it will be synced by flux on the management cluster, and the script will wait until this cluster is"
-  echo "  up and running and will finalize the installation (cni, and flux secret)"
+  echo "Deploy a new workload cluster or finalise installation of existing workload clusters"
+  echo "All patameters are optional, when run without any args the script will auto-discover"
+  echo "workload clusters in the management cluster"
+  echo
+  echo "Usage:"
+  echo
+  echo "-k|--management-cluster-kubeconfig - management cluster kubeconfig, default: $HOME/.kube/config"
+  echo
+  echo "-m|--management-cluster-context - management cluster kubeconfig context, default: 'mgmt'"
+  echo
+  echo "-g|--generate-only <cluster_name> - config file in $REPO_ROOT/config/<cluster_name>.env must exist"
+  echo "  the script will generate all required manifest for the new cluster. It will not be committed to the repo"
+  echo "  This option can be used for existing clusters which can be used to upgrade or update manifests"
+  echo
+  echo "-n|--cluster-name <cluster_name> - same as '-g' but the manifests are committed to the repo."
+  echo "  env var GITHUB_BRANCH must be set. Once pushed, the manifests will be synced by flux on the management cluster"
+  echo "  The script will wait until cluster is up and running and finalize the installation (cni, and flux secret)"
   exit 0
 }
 

@@ -1,18 +1,17 @@
 #!/bin/bash
 set -eoux pipefail
 
-workdir=$(pwd)
+REPO_ROOT=$(git rev-parse --show-toplevel)
 tempdir=$(mktemp -d)
-KUBECTL_MGMT="kubectl --kubeconfig $workdir/target-mgmt.kubeconfig --context mgmt"
-KUBECTL_WORKLOAD="kubectl --kubeconfig $workdir/dev.kubeconfig --context dev"
+KUBECTL_MGMT="kubectl --kubeconfig $REPO_ROOT/target-mgmt.kubeconfig --context mgmt"
 
 trap 'exit_handler $? $LINENO' EXIT
 
 main() {
 
 set +x
-. ${workdir}/config/shared.env
-. ${workdir}/config/cluster-mgmt.env
+. ${REPO_ROOT}/config/shared.env
+. ${REPO_ROOT}/config/cluster-mgmt.env
 set -x
 
 # For more details about install process please check `<repo_root>/docs/bootstrap-and-pivot.md
@@ -36,7 +35,7 @@ EOF
 kind create cluster --config $tempdir/kind-bootstrap.yaml
 
 # Install Flux.
-kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-components.yaml
+kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-components.yaml
 
 kubectl create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
@@ -49,7 +48,7 @@ kubectl wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Establ
 set -e
 
 # This has to be applied separately because it depends on CRDs that were created in gotk-components.
-kubectl apply -f $workdir/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
+kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 
 # cluster resource for permanent management cluster and the accompanying ClusterResourceSet
 # are applied by flux. When the CRS is applied the permanent cluster should be ready to use.
@@ -66,12 +65,12 @@ clusterctl init \
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
 sleep 90
-while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $workdir/target-mgmt.kubeconfig ; do
+while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $REPO_ROOT/target-mgmt.kubeconfig ; do
   echo $(date '+%F %H:%M:%S') re-try in 25s... && sleep 25
 done
 
-chmod go-r $workdir/target-mgmt.kubeconfig
-kubectl --kubeconfig=$workdir/target-mgmt.kubeconfig config rename-context cluster-mgmt-admin@cluster-mgmt mgmt
+chmod go-r $REPO_ROOT/target-mgmt.kubeconfig
+kubectl --kubeconfig=$REPO_ROOT/target-mgmt.kubeconfig config rename-context cluster-mgmt-admin@cluster-mgmt mgmt
 
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
@@ -84,14 +83,14 @@ export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.s
 export K8S_SERVICE_PORT='6443'
 
 # envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
-envsubst < ${workdir}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
+envsubst < ${REPO_ROOT}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
   helm install cilium cilium/cilium --version $CILIUM_VERSION \
-  --kubeconfig $workdir/target-mgmt.kubeconfig \
+  --kubeconfig $REPO_ROOT/target-mgmt.kubeconfig \
   --namespace kube-system -f -
 
 # check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
 
-clusterctl init --kubeconfig $workdir/target-mgmt.kubeconfig --kubeconfig-context mgmt \
+clusterctl init --kubeconfig $REPO_ROOT/target-mgmt.kubeconfig --kubeconfig-context mgmt \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
@@ -135,10 +134,6 @@ exit_handler() {
   rm -f $tempdir/kind-bootstrap.yaml
   echo Files used for this installation are stored in $tempdir for debug
   echo Remember to rm -rf if they are not needed
-  echo
-  echo kubeconfig files:
-  echo $workdir/target-mgmt.kubeconfig
-  echo $workdir/dev.kubeconfig
 }
 
 main
