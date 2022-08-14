@@ -4,17 +4,13 @@ This repository contains manifests and scripts to bootstrap clusters with [Clust
 
 # Tech Stack
 
-The cluster definitions are managed declaratively in a GitOps way using [FLuxCD](https://fluxcd.io/). Flux repositories structure follows ["Repo per team"](https://fluxcd.io/docs/guides/repository-structure/#repo-per-team) approach.
+* GitOps. Cluster(s) manifests are managed by [FLuxCD](https://fluxcd.io/) and the repo structure follows ["repo per team example"](https://fluxcd.io/docs/guides/repository-structure/#repo-per-team).
 
-Deploy process follows ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`.
-Flux manifests are installed on each workload cluster using CAPI feature `ClusterResourceSet` (althouth this feature maybe deprecated in future). Flux manifests are pre-generated and packaged as CRS ConfigMaps, flux is running in read-only mode (deploy key does not have write permissions).
+* Infrastruture provisioning. Deploy process follows ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`. Flux manifests are installed on each CAPI cluster using `ClusterResourceSet` (although this feature may become deprecated in future). Flux manifests are pre-generated and packaged as CRS ConfigMaps, flux is running in read-only mode (deploy key does not have write permissions).
 
-CNI of choice is `cilium` and is installed by a script after the workload cluster is bootstrapped by CAPI. This is because it requires API server IP and in the current setup this is only known in runtime.
+* CNI. [cilium](https://cilium.io/), currently it is installed by script when the cluster is bootstrapped because in kube-proxy-free mode it needs to know API endpoint, and it is known only in runtime in this project current state.
 
-Other projects used:
-
-* [Kong OSS k8s ingress controller](https://docs.konghq.com/kubernetes-ingress-controller/)
-* [Kubernetes Cluster Federation](https://github.com/kubernetes-sigs/kubefed/)
+* Ingress Controller. [Kong OSS k8s](https://docs.konghq.com/kubernetes-ingress-controller/)
 
 # Installation
 
