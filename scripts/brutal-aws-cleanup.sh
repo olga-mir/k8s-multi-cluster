@@ -2,10 +2,11 @@
 
 echo EXIT.
 echo Read the script and uncomment exit statement below.
+echo
+echo This script deletes all instances, NATs, EIPs, ELBs in account without checking if they belong
+echo to a cluster, therefore it can only be used in a test account where only this project is deployed
+echo
 exit 1
-
-# Quick delete all resources that make up the clusters provisioned in this account. (did I say it is brutal)
-# CAPI delete hangs for too long on deleting VPC even though the VPC can be released if tried manually via console.
 
 set -eoux pipefail
 
@@ -29,13 +30,16 @@ for i in ${eips[@]}; do
 done
 
 echo Done.
+echo
+echo VPC cleanup is not attempted because VPC may have external dependencies that were created
+echo in the lifetime of the cluster and were not cleaned up properly
+echo Please delete manually from the console or use this repo:
+echo https://github.com/isovalent/aws-delete-vpc
 
-echo You may need to delete VPC manually from the console
-
-# Some time after NAT and LB are deleted and ENIs are deleted it will be possible to simply delete VPC from the console.
+# Some time after NAT and LB are deleted and ENIs are deleted it will be possible to delete VPC from the console.
 # The command will still hang though, if attempted to delete from CLI:
 # $ aws ec2 delete-vpc --vpc-id vpc-<my-vpc-id>
-# An error occurred (DependencyViolation) when calling the DeleteVpc operation: The vpc 'vpc-0158ac36bf386c091' has dependencies and cannot be deleted.
+# An error occurred (DependencyViolation) when calling the DeleteVpc operation: The vpc 'vpc-<id>' has dependencies and cannot be deleted.
 # (This is the same error as seen in the CAPA logs in `k get events -n <cluster-ns>`
 # In AWS console SGs, IGW, subnets and other dependencies are listed as a warning only, not a blocker.
 # They are deleted as part of VPC deletion.

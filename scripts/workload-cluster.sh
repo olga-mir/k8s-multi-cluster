@@ -9,8 +9,8 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 tempdir=$(mktemp -d)
 
 # Management cluster kube config and context
-MGMT_CTX="mgmt"
-MGMT_CFG="" # default $HOME/.kube/config
+KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
+CONTEXT_MGMT="cluster-mgmt-admin@cluster-mgmt"
 
 # cluster config file containing all settings required for
 # spinning up a new cluster
@@ -57,11 +57,12 @@ done
 if [ -z "$MGMT_CTX" ]; then
   echo Management context name not provided, will be using deafult $MGMT_CTX
 fi
-if [ -z "$MGMT_CFG" ]; then
-  echo Management cluster kubeconfing not provided, $HOME/.kube/config is assumed
-  MGMT_CFG="$HOME/.kube/config"
-  KUBECTL_MGMT="kubectl --kubeconfig $MGMT_CFG --context $MGMT_CTX"
-fi
+
+CONTEXT_MGMT=${MGMT_CTX:-cluster-mgmt-admin@cluster-mgmt}
+KUBECONFIG=${MGMT_CFG:-$HOME/.kube/config}
+KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
+echo Management cluster kubectl config: $KUBECTL_MGMT
+
 if [ -z "$CLUSTER_NAME_ARG" ]; then
   echo Finalize existing workload clusters
   finalize
@@ -138,12 +139,10 @@ finalize_cluster() {
     sleep 15
   done
 
-  kubeconfig=$REPO_ROOT/$cluster.kubeconfig
-  clusterctl --kubeconfig=$MGMT_CFG --kubeconfig-context $MGMT_CTX get kubeconfig $cluster -n $ns > $kubeconfig
-  chmod go-r $kubeconfig
+  clusterctl --kubeconfig=$KUBECONFIG --kubeconfig-context $CONTEXT_MGMT get kubeconfig $cluster -n $ns
+  CONTEXT_WORKLOAD="$cluster-admin@cluster-mgmt"
+  KUBECTL_WORKLOAD="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_WORKLOAD"
 
-  kubectl --kubeconfig=$kubeconfig config rename-context ${cluster}-admin@$cluster $cluster
-  KUBECTL_WORKLOAD="kubectl --kubeconfig $kubeconfig --context $cluster"
   set +e
   echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
   while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 25; done
@@ -161,7 +160,8 @@ finalize_cluster() {
   # envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
   envsubst < ${REPO_ROOT}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
     helm install cilium cilium/cilium --version $CILIUM_VERSION \
-    --kubeconfig $kubeconfig \
+    --kubeconfig $KUBECONFIG \
+    --kube-context $CONTEXT_WORKLOAD \
     --namespace kube-system -f -
 
   # on clusters that already existed in the git repo before deploying

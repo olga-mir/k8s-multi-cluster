@@ -2,9 +2,11 @@
 set -eoux pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
-tempdir=$(mktemp -d)
-KUBECTL_MGMT="kubectl --kubeconfig $REPO_ROOT/target-mgmt.kubeconfig --context mgmt"
+KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
+CONTEXT_MGMT="cluster-mgmt-admin@cluster-mgmt"
+KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
 
+tempdir=$(mktemp -d)
 trap 'exit_handler $? $LINENO' EXIT
 
 main() {
@@ -62,15 +64,19 @@ clusterctl init \
 
 ############## ------ on AWS mgmt cluster ------
 
+# Save orig kubeconfig as a pre-caution
+temp_kubeconfig=$HOME/.kube/config-$(date +%F_%H_%M_%S)
+cp $HOME/.kube/config $temp_kubeconfig
+
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
 sleep 90
-while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $REPO_ROOT/target-mgmt.kubeconfig ; do
+while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $tempdir/kubeconfig; do
   echo $(date '+%F %H:%M:%S') re-try in 25s... && sleep 25
 done
 
-chmod go-r $REPO_ROOT/target-mgmt.kubeconfig
-kubectl --kubeconfig=$REPO_ROOT/target-mgmt.kubeconfig config rename-context cluster-mgmt-admin@cluster-mgmt mgmt
+KUBECONFIG=$HOME/.kube/config:$tempdir/kubeconfig kubectl config view --raw=true --merge=true > $tempdir/merged-config
+mv $tempdir/merged-config > $HOME/.kube/config
 
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
@@ -85,12 +91,11 @@ export K8S_SERVICE_PORT='6443'
 # envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
 envsubst < ${REPO_ROOT}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
   helm install cilium cilium/cilium --version $CILIUM_VERSION \
-  --kubeconfig $REPO_ROOT/target-mgmt.kubeconfig \
+  --kubeconfig $KUBECONFIG \
+  --kube-context $CONTEXT_MGMT \
   --namespace kube-system -f -
 
-# check cilium setup: https://docs.cilium.io/en/v1.9/gettingstarted/k8s-install-connectivity-test/
-
-clusterctl init --kubeconfig $REPO_ROOT/target-mgmt.kubeconfig --kubeconfig-context mgmt \
+clusterctl init --kubeconfig $KUBECONFIG --kubeconfig-context $CONTEXT_MGMT \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
@@ -108,14 +113,7 @@ set -e
 
 flux --context kind-kind suspend kustomization infrastructure
 
-# by default `kind` creates its context in default location (~/.kube/config if $KUBECONFIG is not set)
-clusterctl move --kubeconfig $HOME/.kube/config --kubeconfig-context kind-kind --to-kubeconfig=./target-mgmt.kubeconfig -n cluster-mgmt
-
-# Now `mgmt` cluster lives on the AWS permanent management cluster:
-# % k get clusters -A
-# NAMESPACE      NAME   PHASE         AGE   VERSION
-# cluster-dev    dev    Provisioned   50m
-# cluster-mgmt   mgmt   Provisioned   56m
+clusterctl move --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind --to-kubeconfig=$KUBECONFIG --to-kubeconfig-context $CONTEXT_MGMT -n cluster-mgmt
 
 # At this stage `kind` cluster can be safely deleted. Later a new temp cluster can be created to move the permanent
 # management cluster to. But for the purpose of this project just keep this cluster running. It will be used later

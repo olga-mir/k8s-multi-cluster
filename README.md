@@ -29,6 +29,8 @@ deploy permanent management cluster on AWS (using temp `kind` cluster and then p
 ```
 ./scripts/deploy.sh
 ```
+:warning: for each cluster which is deployed during this script a kubeconfig is merged to `$HOME/.kube/config` preserving any entries that previously existed there. There is no control to change this, but a backup saved to `$HOME/.kube/config-$(date +%F_%H_%M_%S)` just in case.
+
 flux on management cluster will apply CAPI manifests that are currently present in the repo.
 
 When script is complete run script to finalize workload clusters (install cilium which currently is not vi CRS - due to dynamic KAS address) and flux secret (WIP to eliminate this step).
