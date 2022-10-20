@@ -76,7 +76,7 @@ while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $tempdir/kubeco
 done
 
 KUBECONFIG=$HOME/.kube/config:$tempdir/kubeconfig kubectl config view --raw=true --merge=true > $tempdir/merged-config
-mv $tempdir/merged-config > $HOME/.kube/config
+mv $tempdir/merged-config $HOME/.kube/config
 
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive

@@ -54,11 +54,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-if [ -z "$MGMT_CTX" ]; then
-  echo Management context name not provided, will be using deafult $MGMT_CTX
-fi
-
-CONTEXT_MGMT=${MGMT_CTX:-cluster-mgmt-admin@cluster-mgmt}
+CONTEXT_MGMT=${MGMT_CTX:-$CONTEXT_MGMT}
 KUBECONFIG=${MGMT_CFG:-$HOME/.kube/config}
 KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
 echo Management cluster kubectl config: $KUBECTL_MGMT
@@ -131,16 +127,20 @@ generate_and_push_manifests() {
 
 finalize_cluster() {
   local cluster=$1
-  local ns=$cluster
-  echo Finalizing cluster $cluster in $ns namespace
+  echo Finalizing cluster $cluster in $cluster namespace
 
-  while ! $KUBECTL_MGMT wait --for condition=ResourcesApplied=True clusterresourceset crs -n $ns --timeout=15s ; do
+  while ! $KUBECTL_MGMT wait --for condition=ResourcesApplied=True clusterresourceset crs -n $cluster --timeout=15s ; do
     echo $(date '+%F %H:%M:%S') waiting for workload cluster to become ready
     sleep 15
   done
 
-  clusterctl --kubeconfig=$KUBECONFIG --kubeconfig-context $CONTEXT_MGMT get kubeconfig $cluster -n $ns
-  CONTEXT_WORKLOAD="$cluster-admin@cluster-mgmt"
+  # get workload cluster kubeconfig and merge it to the main one
+  cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
+  clusterctl --kubeconfig=$KUBECONFIG --kubeconfig-context $CONTEXT_MGMT get kubeconfig $cluster -n $cluster > $tempdir/$cluster-config
+  KUBECONFIG=$HOME/.kube/config:$tempdir/$cluster-config kubectl config view --raw=true --merge=true > $tempdir/merged-config
+  mv $tempdir/merged-config $HOME/.kube/config
+
+  CONTEXT_WORKLOAD="$cluster-admin@$cluster"
   KUBECTL_WORKLOAD="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_WORKLOAD"
 
   set +e
@@ -166,7 +166,7 @@ finalize_cluster() {
 
   # on clusters that already existed in the git repo before deploying
   # flux is installed via CRS, so no need to do it in script
-  kubectl --kubeconfig=$kubeconfig create secret generic flux-system -n flux-system \
+  $KUBECTL_WORKLOAD create secret generic flux-system -n flux-system \
     --from-file identity=$FLUX_KEY_PATH  \
     --from-file identity.pub=$FLUX_KEY_PATH.pub \
     --from-literal known_hosts="$GITHUB_KNOWN_HOSTS"
