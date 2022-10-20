@@ -138,6 +138,7 @@ finalize_cluster() {
   cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
   clusterctl --kubeconfig=$KUBECONFIG --kubeconfig-context $CONTEXT_MGMT get kubeconfig $cluster -n $cluster > $tempdir/$cluster-config
   KUBECONFIG=$HOME/.kube/config:$tempdir/$cluster-config kubectl config view --raw=true --merge=true > $tempdir/merged-config
+  chmod 600 $tempdir/merged-config
   mv $tempdir/merged-config $HOME/.kube/config
 
   CONTEXT_WORKLOAD="$cluster-admin@$cluster"

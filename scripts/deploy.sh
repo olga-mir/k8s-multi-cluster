@@ -64,9 +64,8 @@ clusterctl init \
 
 ############## ------ on AWS mgmt cluster ------
 
-# Save orig kubeconfig as a pre-caution
-temp_kubeconfig=$HOME/.kube/config-$(date +%F_%H_%M_%S)
-cp $HOME/.kube/config $temp_kubeconfig
+# Backup original kubeconfig file
+cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
 
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
@@ -76,6 +75,7 @@ while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $tempdir/kubeco
 done
 
 KUBECONFIG=$HOME/.kube/config:$tempdir/kubeconfig kubectl config view --raw=true --merge=true > $tempdir/merged-config
+chmod 600 $tempdir/merged-config
 mv $tempdir/merged-config $HOME/.kube/config
 
 set +e
@@ -88,12 +88,15 @@ sleep 10 # a little more time for IP to be set in status
 export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
 export K8S_SERVICE_PORT='6443'
 
+helm repo update cilium
 # envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
-envsubst < ${REPO_ROOT}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
+envsubst < ${REPO_ROOT}/templates/cni/cilium-values-overrides-${CILIUM_VERSION}.yaml | \
   helm install cilium cilium/cilium --version $CILIUM_VERSION \
   --kubeconfig $KUBECONFIG \
   --kube-context $CONTEXT_MGMT \
-  --namespace kube-system -f -
+  --namespace kube-system \
+  -f https://raw.githubusercontent.com/cilium/cilium/v${CILIUM_VERSION}/install/kubernetes/cilium/values.yaml \
+  -f -
 
 clusterctl init --kubeconfig $KUBECONFIG --kubeconfig-context $CONTEXT_MGMT \
   --core cluster-api:$CAPI_VERSION \
