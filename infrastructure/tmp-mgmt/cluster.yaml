@@ -28,7 +28,7 @@ metadata:
   namespace: "cluster-mgmt"
 spec:
   region: "ap-southeast-2"
-  sshKeyName: "cks"
+  sshKeyName: "aws"
   network:
     vpc:
       availabilityZoneUsageLimit: 1
@@ -75,7 +75,7 @@ spec:
         name: '{{ ds.meta_data.local_hostname }}'
         kubeletExtraArgs:
           cloud-provider: aws
-  version: "1.23.8"
+  version: "1.24.7"
 ---
 kind: AWSMachineTemplate
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
@@ -87,7 +87,7 @@ spec:
     spec:
       instanceType: "t3.medium"
       iamInstanceProfile: "control-plane.cluster-api-provider-aws.sigs.k8s.io"
-      sshKeyName: "cks"
+      sshKeyName: "aws"
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
@@ -102,7 +102,7 @@ spec:
   template:
     spec:
       clusterName: "cluster-mgmt"
-      version: "1.23.8"
+      version: "1.24.7"
       bootstrap:
         configRef:
           name: "cluster-mgmt-md-0"
@@ -123,7 +123,7 @@ spec:
     spec:
       instanceType: "t3.medium"
       iamInstanceProfile: "nodes.cluster-api-provider-aws.sigs.k8s.io"
-      sshKeyName: "cks"
+      sshKeyName: "aws"
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
