@@ -39,6 +39,8 @@ for line in $clusters; do
   while $KUBECTL_KIND get cluster $cluster -n $cluster; do
     sleep 60
   done
+  kubectl config delete-user $cluster-admin
+  kubectl config delete-cluster $cluster
 done
 
 kind delete cluster
