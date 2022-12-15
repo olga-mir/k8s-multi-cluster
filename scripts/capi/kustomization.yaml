@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.3.0/cluster-api-components.yaml
+
+patches:
+-   patch: "- op: replace\n  path: /spec/template/spec/containers/0/args\n  value:\n
+        \   - --leader-elect\n    - --metrics-bind-addr=localhost:8080\n    - --feature-gates=MachinePool=false,ClusterResourceSet=true,ClusterTopology=false,RuntimeSDK=false"
+    target:
+        kind: Deployment
+        name: capi-controller-manager
+        namespace: capi-system
+-   patch: "- op: replace\n  path: /spec/template/spec/containers/0/args\n  value:\n
+        \   - --leader-elect\n    - --metrics-bind-addr=localhost:8080"
+    target:
+        kind: Deployment
+        name: capi-kubeadm-bootstrap-controller-manager
+        namespace: capi-kubeadm-bootstrap-system
+-   patch: "- op: replace\n  path: /spec/template/spec/containers/0/args\n  value:\n
+        \   - --leader-elect\n    - --metrics-bind-addr=localhost:8080"
+    target:
+        kind: Deployment
+        name: capi-kubeadm-control-plane-controller-manager
+        namespace: capi-kubeadm-control-plane-system
