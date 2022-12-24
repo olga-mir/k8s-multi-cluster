@@ -5607,7 +5607,7 @@ data:
       namespace: flux-system
     spec:
       interval: 1m0s
-      path: ./clusters/staging/mgmt
+      path: ./clusters/mgmt
       prune: true
       sourceRef:
         kind: GitRepository

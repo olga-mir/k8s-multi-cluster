@@ -97,11 +97,11 @@ generate_and_push_manifests() {
   # instantiated from template
   # This is only needed when adding a cluster for the first time to the repo. On the following invocations, flux is deployed as CRS
   flux_crs=$tempdir/flux-combined.yaml
-  cluster_dir=$REPO_ROOT/clusters/staging/${CLUSTER_NAME}/flux-system
+  cluster_dir=$REPO_ROOT/clusters/${CLUSTER_NAME}/flux-system
   mkdir -p $cluster_dir
   flux install --version=$FLUXCD_VERSION --export > $cluster_dir/gotk-components.yaml
   envsubst < $REPO_ROOT/templates/gotk-sync.yaml > $cluster_dir/gotk-sync.yaml
-  generate_kustomizations $cluster_dir/kustomization.yaml clusters/staging/$CLUSTER_NAME/kustomization.yaml
+  generate_kustomizations $cluster_dir/kustomization.yaml clusters/$CLUSTER_NAME/kustomization.yaml
 
   cp $cluster_dir/gotk-components.yaml $flux_crs
   echo "---" >> $flux_crs

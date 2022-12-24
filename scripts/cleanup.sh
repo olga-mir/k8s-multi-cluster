@@ -41,6 +41,7 @@ for line in $clusters; do
   done
   kubectl config delete-user $cluster-admin
   kubectl config delete-cluster $cluster
+  kubectl config delete-context ${cluster}-admin@$cluster
 done
 
 kind delete cluster
