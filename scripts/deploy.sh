@@ -83,20 +83,20 @@ echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become
 while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 15; done
 set -e
 
-kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
-sleep 10 # a little more time for IP to be set in status
-export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
-export K8S_SERVICE_PORT='6443'
-
-helm repo update cilium
-# envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
-envsubst < ${REPO_ROOT}/templates/cni/cilium-values-overrides-${CILIUM_VERSION}.yaml | \
-  helm install cilium cilium/cilium --version $CILIUM_VERSION \
-  --kubeconfig $KUBECONFIG \
-  --kube-context $CONTEXT_MGMT \
-  --namespace kube-system \
-  -f https://raw.githubusercontent.com/cilium/cilium/v${CILIUM_VERSION}/install/kubernetes/cilium/values.yaml \
-  -f -
+# kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
+# sleep 10 # a little more time for IP to be set in status
+# export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
+# export K8S_SERVICE_PORT='6443'
+# 
+# helm repo update cilium
+# # envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
+# envsubst < ${REPO_ROOT}/templates/cni/cilium-values-overrides-${CILIUM_VERSION}.yaml | \
+#   helm install cilium cilium/cilium --version $CILIUM_VERSION \
+#   --kubeconfig $KUBECONFIG \
+#   --kube-context $CONTEXT_MGMT \
+#   --namespace kube-system \
+#   -f https://raw.githubusercontent.com/cilium/cilium/v${CILIUM_VERSION}/install/kubernetes/cilium/values.yaml \
+#   -f -
 
 clusterctl init --kubeconfig $KUBECONFIG --kubeconfig-context $CONTEXT_MGMT \
   --core cluster-api:$CAPI_VERSION \
