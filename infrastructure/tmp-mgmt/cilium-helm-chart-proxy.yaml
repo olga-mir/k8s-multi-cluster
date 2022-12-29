@@ -12,7 +12,7 @@ spec:
   namespace: cilium
   version: "1.12.3"
   valuesTemplate: |
-     # override defaults set in https://github.com/cilium/cilium/blob/v1.12.3/install/kubernetes/cilium/values.yaml
+    # override defaults set in https://github.com/cilium/cilium/blob/v1.12.3/install/kubernetes/cilium/values.yaml
 
     k8sServiceHost: {{ .Cluster.spec.controlPlaneEndpoint.host }}
     k8sServicePort: {{ .Cluster.spec.controlPlaneEndpoint.port }}
