@@ -1,14 +1,8 @@
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-metadata:
-  name: caaph-resource
-  namespace: flux-system
-spec:
-  interval: 1m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: ./clusters/tmp-mgmt
-  prune: true
-  dependsOn:
-  - name: caaph
+resources:
+  - namespace.yaml
+  - platform.yaml
+  - capi-cluster-mgmt.yaml
+  - platform-remote.yaml
+  - cilium-helm-chart-proxy.yaml
