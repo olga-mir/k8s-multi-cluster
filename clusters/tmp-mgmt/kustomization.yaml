@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - platform.yaml
+  - capi-cluster-mgmt.yaml
+  - platform-remote.yaml
+  - cilium-helm-chart-proxy.yaml
