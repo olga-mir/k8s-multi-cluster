@@ -7,7 +7,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
   name: caaph-remote
-  namespace: cluster-mgmt
+  namespace: flux-system
 spec:
   interval: 1m
   sourceRef:
@@ -22,8 +22,8 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
-  name: flux
-  namespace: cluster-mgmt
+  name: flux-remote
+  namespace: flux-system
 spec:
   interval: 1m
   sourceRef:
