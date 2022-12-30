@@ -1,0 +1,36 @@
+# platform components that need to be installed and run on the "workload" cluster of this cluster
+# which in case of tmp-mgmt cluster is the permanent `cluster-mgmt`
+#
+# https://fluxcd.io/flux/components/kustomize/kustomization/#remote-clusters--cluster-api
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: caaph
+  namespace: cluster-mgmt
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./platform-components/cluster-api-addon-provider-helm
+  prune: true
+  kubeConfig:
+    secretRef:
+      name: cluster-mgmt
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: flux
+  namespace: cluster-mgmt
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./platform-components/flux/v0.38.1
+  prune: true
+  kubeConfig:
+    secretRef:
+      name: cluster-mgmt
