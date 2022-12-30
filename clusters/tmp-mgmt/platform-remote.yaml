@@ -15,6 +15,7 @@ spec:
     name: flux-system
   path: ./platform-components/cluster-api-addon-provider-helm
   prune: true
+  targetNamespace: cluster-mgmt
   kubeConfig:
     secretRef:
       name: cluster-mgmt-kubeconfig
@@ -31,6 +32,7 @@ spec:
     name: flux-system
   path: ./platform-components/flux/v0.38.1
   prune: true
+  targetNamespace: cluster-mgmt
   kubeConfig:
     secretRef:
       name: cluster-mgmt-kubeconfig
