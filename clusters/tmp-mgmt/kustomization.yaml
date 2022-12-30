@@ -5,4 +5,4 @@ resources:
   - platform.yaml
   - capi-cluster-mgmt.yaml
   - platform-remote.yaml
-  - cilium-helm-chart-proxy.yaml
+  - cluster-remote/kustomization.yaml
