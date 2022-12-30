@@ -112,9 +112,7 @@ exit_handler() {
   if [ "$1" != "0" ]; then
     echo "LINE: $2 ERROR: $1"
   fi
-  rm -f $tempdir/kind-bootstrap.yaml
-  echo Files used for this installation are stored in $tempdir for debug
-  echo Remember to rm -rf if they are not needed
+  rm -rf $tempdir
 }
 
 main

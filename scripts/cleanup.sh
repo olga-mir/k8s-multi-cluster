@@ -10,7 +10,7 @@ CTX_MGMT=cluster-mgmt-admin@cluster-mgmt
 
 set -x
 echo Suspend CAPI sources reconciliation.
-flux --context $CTX_MGMT suspend kustomization infrastructure
+flux --context $CTX_MGMT suspend kustomization flux-system
 
 KUBECTL_MGMT="kubectl --context $CTX_MGMT"
 echo $(date '+%F %H:%M:%S') Moving all clusters back to 'kind' cluster
@@ -22,7 +22,7 @@ done
 sleep 15
 
 echo "---- Switching to 'kind' cluster"
-flux --context kind-kind suspend kustomization infrastructure
+flux --context kind-kind suspend kustomization flux-system
 
 KUBECTL_KIND="kubectl --context kind-kind"
 clusters=$($KUBECTL_KIND get clusters -A --no-headers=true -o name)
