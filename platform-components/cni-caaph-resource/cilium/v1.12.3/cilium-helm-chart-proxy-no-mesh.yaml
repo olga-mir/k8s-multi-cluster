@@ -1,11 +1,11 @@
 apiVersion: addons.cluster.x-k8s.io/v1alpha1
 kind: HelmChartProxy
 metadata:
-  name: cilium
+  name: cilium-no-mesh
 spec:
   clusterSelector:
     matchLabels:
-      cilium-mesh: main
+      cilium-mesh: none
   repoURL: https://helm.cilium.io/
   chartName: cilium
   namespace: cilium
@@ -15,13 +15,6 @@ spec:
 
     k8sServiceHost: {{ .Cluster.spec.controlPlaneEndpoint.host }}
     k8sServicePort: {{ .Cluster.spec.controlPlaneEndpoint.port }}
-
-    cluster:
-      # -- Name of the cluster. Only required for Cluster Mesh.
-      name: {{ .ControlPlane.metadata.name }}
-      # -- (int) Unique ID of the cluster. Must be unique across all connected
-      # clusters and in the range of 1 to 255. Only required for Cluster Mesh.
-      id: {{ .ControlPlane.metadata.name | strings.TrimPrefix "cluster-0" }}
 
     # -- Configure ClusterIP service handling in the host namespace (the node).
     hostServices:

@@ -6,7 +6,10 @@ metadata:
   namespace: "cluster-01"
   labels:
     cluster.x-k8s.io/cluster-name: "cluster-01"
-    crs: enabled
+    cluster-role: workload
+    cluster-index: 0
+    cluster-tier: dev
+    cilium-mesh: main
 spec:
   clusterNetwork:
     pods:

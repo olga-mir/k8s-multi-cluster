@@ -95,21 +95,12 @@ generate_and_push_manifests() {
   # I don't want to give flux deploy key with write permissions, therefore 'bootstrap' is not an option
   # 'flux install --export' does not have options to generate gotk-sync.yaml, so instead this will be
   # instantiated from template
-  # This is only needed when adding a cluster for the first time to the repo. On the following invocations, flux is deployed as CRS
-  flux_crs=$tempdir/flux-combined.yaml
+  # This is only needed when adding a cluster for the first time to the repo. On the following invocations, flux is deployed by flux instance on a management cluster
   cluster_dir=$REPO_ROOT/clusters/${CLUSTER_NAME}/flux-system
   mkdir -p $cluster_dir
   flux install --version=$FLUXCD_VERSION --export > $cluster_dir/gotk-components.yaml
   envsubst < $REPO_ROOT/templates/gotk-sync.yaml > $cluster_dir/gotk-sync.yaml
   generate_kustomizations $cluster_dir/kustomization.yaml clusters/$CLUSTER_NAME/kustomization.yaml
-
-  cp $cluster_dir/gotk-components.yaml $flux_crs
-  echo "---" >> $flux_crs
-  cat $cluster_dir/gotk-sync.yaml >> $flux_crs
-
-  # now we can put this in CM. (k create cm accepts --from-<whatever> multiple times,
-  # but it creates a separate data entry for each occurence, that's why concatenating file was necessary
-  kubectl create configmap crs-cm-flux-${FLUXCD_VERSION} --from-file=$flux_crs -n $CLUSTER_NAME --dry-run=client -o yaml > $infra_dir/crs-cm-flux-${FLUXCD_VERSION}.yaml
 
   if [ -z "$(grep $CLUSTER_NAME $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml)" ]; then
     yq eval ". *+ {\"resources\":[\"$CLUSTER_NAME\"]}" $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml --inplace
@@ -149,7 +140,8 @@ finalize_cluster() {
   set -x
 
   # on clusters that already existed in the git repo before deploying
-  # flux is installed via CRS, so no need to do it in script
+  # flux is installed by flux instance on a management cluster, but secret for now is installed manually
+  # to avoid storing even encrypted secrets in public github repo.
   $KUBECTL_WORKLOAD create secret generic flux-system -n flux-system \
     --from-file identity=$FLUX_KEY_PATH  \
     --from-file identity.pub=$FLUX_KEY_PATH.pub \
