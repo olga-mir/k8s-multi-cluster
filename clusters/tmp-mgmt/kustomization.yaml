@@ -1,8 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: cluster-mgmt
 resources:
   - namespace.yaml
   - platform.yaml
   - capi-cluster.yaml
   - platform-remote.yaml
+patches:
+- path: patch.yaml
+  target:
+    group: addons.cluster.x-k8s.io
+    version: v1alpha1
+    kind: HelmChartProxy
+    name: cilium-no-mesh
