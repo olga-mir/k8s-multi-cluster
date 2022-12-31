@@ -21,7 +21,7 @@ spec:
       name: {{ .ControlPlane.metadata.name }}
       # -- (int) Unique ID of the cluster. Must be unique across all connected
       # clusters and in the range of 1 to 255. Only required for Cluster Mesh.
-      id: {{ .ControlPlane.metadata.name | strings.TrimPrefix "cluster-0" }}
+      id: 1 # (strings not defined :( ){{ .ControlPlane.metadata.name | strings.TrimPrefix "cluster-0" }}
 
     # -- Configure ClusterIP service handling in the host namespace (the node).
     hostServices:
