@@ -3,7 +3,6 @@ kind: Kustomization
 namespace: cluster-mgmt
 resources:
   - namespace.yaml
-  - cluster.yaml
   - platform.yaml
   - capi-cluster.yaml
   - platform-remote.yaml
