@@ -6,23 +6,6 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
 kind: Kustomization
 metadata:
-  name: caaph-remote
-  namespace: cluster-mgmt
-spec:
-  interval: 1m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-    namespace: flux-system
-  path: ./platform-components/cluster-api-addon-provider-helm
-  prune: true
-  kubeConfig:
-    secretRef:
-      name: cluster-mgmt-kubeconfig
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
-kind: Kustomization
-metadata:
   name: flux-remote
   namespace: cluster-mgmt
 spec:

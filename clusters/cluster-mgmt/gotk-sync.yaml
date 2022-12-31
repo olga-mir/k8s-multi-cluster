@@ -6,7 +6,7 @@ metadata:
   name: flux-system
   namespace: flux-system
 spec:
-  interval: 1m0s
+  interval: 2m
   ref:
     branch: develop
   secretRef:
@@ -19,8 +19,8 @@ metadata:
   name: flux-system
   namespace: flux-system
 spec:
-  interval: 1m0s
-  path: ./clusters/mgmt
+  interval: 2m
+  path: ./clusters/cluster-mgmt
   prune: true
   sourceRef:
     kind: GitRepository

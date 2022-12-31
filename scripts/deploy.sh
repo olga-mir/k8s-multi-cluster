@@ -61,7 +61,6 @@ clusterctl init \
   --control-plane kubeadm:$CAPI_VERSION \
   --infrastructure aws
 
-
 ############## ------ on AWS mgmt cluster ------
 
 # Backup original kubeconfig file
@@ -94,7 +93,7 @@ set +e
 while ! $KUBECTL_MGMT wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
-flux --context kind-kind suspend kustomization infrastructure
+flux --context kind-kind suspend kustomization flux-system
 
 clusterctl move --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind --to-kubeconfig=$KUBECONFIG --to-kubeconfig-context $CONTEXT_MGMT -n cluster-mgmt
 

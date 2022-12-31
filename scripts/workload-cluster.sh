@@ -129,10 +129,10 @@ finalize_cluster() {
   local cluster=$1
   echo Finalizing cluster $cluster in $cluster namespace
 
-  while ! $KUBECTL_MGMT wait --for condition=ResourcesApplied=True clusterresourceset crs -n $cluster --timeout=15s ; do
-    echo $(date '+%F %H:%M:%S') waiting for workload cluster to become ready
-    sleep 15
-  done
+  set +e
+  echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
+  while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 25; done
+  set -e
 
   # get workload cluster kubeconfig and merge it to the main one
   cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
@@ -144,26 +144,9 @@ finalize_cluster() {
   CONTEXT_WORKLOAD="$cluster-admin@$cluster"
   KUBECTL_WORKLOAD="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_WORKLOAD"
 
-  set +e
-  echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
-  while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 25; done
-  set -e
-
-  kas=$($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name)
-  sleep 10
-  export K8S_SERVICE_HOST=$($KUBECTL_WORKLOAD get $kas -n kube-system --template '{{.status.podIP}}')
-  export K8S_SERVICE_PORT='6443'
-
   set +x
   . $REPO_ROOT/config/$cluster.env
   set -x
-
-  # envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
-  envsubst < ${REPO_ROOT}/templates/cni/cilium-values-${CILIUM_VERSION}.yaml | \
-    helm install cilium cilium/cilium --version $CILIUM_VERSION \
-    --kubeconfig $KUBECONFIG \
-    --kube-context $CONTEXT_WORKLOAD \
-    --namespace kube-system -f -
 
   # on clusters that already existed in the git repo before deploying
   # flux is installed via CRS, so no need to do it in script

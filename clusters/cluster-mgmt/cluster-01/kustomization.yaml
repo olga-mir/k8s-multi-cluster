@@ -3,4 +3,5 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - cluster.yaml
-  - ../../base/crs.yaml
+  - platform.yaml
+  - capi-cluster.yaml
