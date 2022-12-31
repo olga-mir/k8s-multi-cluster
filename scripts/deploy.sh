@@ -77,6 +77,11 @@ KUBECONFIG=$HOME/.kube/config:$tempdir/kubeconfig kubectl config view --raw=true
 chmod 600 $tempdir/merged-config
 mv $tempdir/merged-config $HOME/.kube/config
 
+set +e
+echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
+while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 15; done
+set -e
+
 clusterctl init --kubeconfig $KUBECONFIG --kubeconfig-context $CONTEXT_MGMT \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
