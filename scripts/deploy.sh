@@ -52,9 +52,6 @@ set -e
 # This has to be applied separately because it depends on CRDs that were created in gotk-components.
 kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/gotk-sync.yaml
 
-# cluster resource for permanent management cluster and the accompanying ClusterResourceSet
-# are applied by flux. When the CRS is applied the permanent cluster should be ready to use.
-
 clusterctl init \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \

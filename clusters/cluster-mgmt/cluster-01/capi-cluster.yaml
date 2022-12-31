@@ -7,7 +7,7 @@ metadata:
   labels:
     cluster.x-k8s.io/cluster-name: "cluster-01"
     cluster-role: workload
-    cluster-index: 0
+    cluster-index: "0"
     cluster-tier: dev
     cilium-mesh: main
 spec:

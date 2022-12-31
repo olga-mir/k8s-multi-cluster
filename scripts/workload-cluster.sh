@@ -120,20 +120,24 @@ finalize_cluster() {
   local cluster=$1
   echo Finalizing cluster $cluster in $cluster namespace
 
-  set +e
-  echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
-  while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 25; done
-  set -e
+  echo $(date '+%F %H:%M:%S') - Waiting for $cluster kubeconfig to become available
+  while ! clusterctl --kubeconfig=$KUBECONFIG --kubeconfig-context $CONTEXT_MGMT get kubeconfig $cluster -n $cluster > $tempdir/$cluster-config ; do
+    echo $(date '+%F %H:%M:%S') re-try in 25s... && sleep 25
+  done
 
   # get workload cluster kubeconfig and merge it to the main one
   cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
-  clusterctl --kubeconfig=$KUBECONFIG --kubeconfig-context $CONTEXT_MGMT get kubeconfig $cluster -n $cluster > $tempdir/$cluster-config
   KUBECONFIG=$HOME/.kube/config:$tempdir/$cluster-config kubectl config view --raw=true --merge=true > $tempdir/merged-config
   chmod 600 $tempdir/merged-config
   mv $tempdir/merged-config $HOME/.kube/config
 
   CONTEXT_WORKLOAD="$cluster-admin@$cluster"
   KUBECTL_WORKLOAD="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_WORKLOAD"
+
+  set +e
+  echo $(date '+%F %H:%M:%S') - Waiting for workload cluster to become responsive
+  while [ -z $($KUBECTL_WORKLOAD get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 25; done
+  set -e
 
   set +x
   . $REPO_ROOT/config/$cluster.env
