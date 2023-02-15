@@ -10,5 +10,5 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./platform-components/cluster-api-addon-provider-helm
+  path: ./k8s-platform/cluster-api-addon-provider-helm
   prune: true
