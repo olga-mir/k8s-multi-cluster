@@ -36,8 +36,9 @@ EOF
 
 kind create cluster --config $tempdir/kind-bootstrap.yaml
 
-# Install Flux.
-kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-components.yaml
+# Install Flux. Flux is running in RO mode, and manifests are pre-generated.
+# Need to eliminate hardcoding the version in the script.
+kubectl apply -f $REPO_ROOT/k8s-platform/flux/v0.38.1/gotk-components.yaml
 
 kubectl create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
@@ -50,17 +51,13 @@ kubectl wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Establ
 set -e
 
 # This has to be applied separately because it depends on CRDs that were created in gotk-components.
-kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
-
-# cluster resource for permanent management cluster and the accompanying ClusterResourceSet
-# are applied by flux. When the CRS is applied the permanent cluster should be ready to use.
+kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/gotk-sync.yaml
 
 clusterctl init \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
   --infrastructure aws
-
 
 ############## ------ on AWS mgmt cluster ------
 
@@ -83,27 +80,13 @@ echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become
 while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 15; done
 set -e
 
-kas=$($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name)
-sleep 10 # a little more time for IP to be set in status
-export K8S_SERVICE_HOST=$($KUBECTL_MGMT get $kas -n kube-system --template '{{.status.podIP}}')
-export K8S_SERVICE_PORT='6443'
-
-helm repo update cilium
-# envsubst in heml values.yaml: https://github.com/helm/helm/issues/10026
-envsubst < ${REPO_ROOT}/templates/cni/cilium-values-overrides-${CILIUM_VERSION}.yaml | \
-  helm install cilium cilium/cilium --version $CILIUM_VERSION \
-  --kubeconfig $KUBECONFIG \
-  --kube-context $CONTEXT_MGMT \
-  --namespace kube-system \
-  -f https://raw.githubusercontent.com/cilium/cilium/v${CILIUM_VERSION}/install/kubernetes/cilium/values.yaml \
-  -f -
-
 clusterctl init --kubeconfig $KUBECONFIG --kubeconfig-context $CONTEXT_MGMT \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
   --infrastructure aws
 
+# Flux on mgmt cluster is installed by Flux on tmp-mgmt cluster in clusters/tmp-mgmt/platform-remote.yaml
 $KUBECTL_MGMT create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
   --from-file identity.pub=$FLUX_KEY_PATH.pub \
@@ -114,7 +97,7 @@ set +e
 while ! $KUBECTL_MGMT wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
-flux --context kind-kind suspend kustomization infrastructure
+flux --context kind-kind suspend kustomization flux-system
 
 clusterctl move --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind --to-kubeconfig=$KUBECONFIG --to-kubeconfig-context $CONTEXT_MGMT -n cluster-mgmt
 
@@ -132,9 +115,7 @@ exit_handler() {
   if [ "$1" != "0" ]; then
     echo "LINE: $2 ERROR: $1"
   fi
-  rm -f $tempdir/kind-bootstrap.yaml
-  echo Files used for this installation are stored in $tempdir for debug
-  echo Remember to rm -rf if they are not needed
+  rm -rf $tempdir
 }
 
 main

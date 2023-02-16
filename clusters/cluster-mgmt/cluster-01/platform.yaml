@@ -1,0 +1,33 @@
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: flux-remote
+  namespace: cluster-01
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+    namespace: flux-system
+  path: ./k8s-platform/flux/v0.38.1
+  prune: true
+  kubeConfig:
+    secretRef:
+      name: cluster-01-kubeconfig
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: caaph-cni
+  namespace: flux-system
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./k8s-platform/cni-caaph-resource/cilium/v1.12.3
+  targetNamespace: cluster-01
+  prune: true
+  dependsOn:
+  - name: caaph

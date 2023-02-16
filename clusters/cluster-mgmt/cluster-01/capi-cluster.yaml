@@ -2,32 +2,36 @@
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
-  name: "${CLUSTER_NAME}"
-  namespace: "${CLUSTER_NAME}"
+  name: "cluster-01"
+  namespace: "cluster-01"
   labels:
-    cluster.x-k8s.io/cluster-name: "${CLUSTER_NAME}"
+    cluster.x-k8s.io/cluster-name: "cluster-01"
+    cluster-role: workload
+    cluster-index: "0"
+    cluster-tier: dev
+    cilium-mesh: main
 spec:
   clusterNetwork:
     pods:
       cidrBlocks:
-      - "${POD_CIDR}"
+      - "192.168.0.0/20"
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AWSCluster
-    name: "${CLUSTER_NAME}"
+    name: "cluster-01"
   controlPlaneRef:
     kind: KubeadmControlPlane
     apiVersion: controlplane.cluster.x-k8s.io/v1beta1
-    name: "${CLUSTER_NAME}-control-plane"
+    name: "cluster-01-control-plane"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSCluster
 metadata:
-  name: "${CLUSTER_NAME}"
-  namespace: "${CLUSTER_NAME}"
+  name: "cluster-01"
+  namespace: "cluster-01"
 spec:
-  region: "${AWS_REGION}"
-  sshKeyName: "${AWS_SSH_KEY_NAME}"
+  region: "ap-southeast-2"
+  sshKeyName: "aws"
   network:
     vpc:
       availabilityZoneUsageLimit: 1
@@ -45,15 +49,15 @@ spec:
 kind: KubeadmControlPlane
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 metadata:
-  name: "${CLUSTER_NAME}-control-plane"
-  namespace: "${CLUSTER_NAME}"
+  name: "cluster-01-control-plane"
+  namespace: "cluster-01"
 spec:
-  replicas: ${CONTROL_PLANE_MACHINE_COUNT}
+  replicas: 1
   machineTemplate:
     infrastructureRef:
       kind: AWSMachineTemplate
       apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-      name: "${CLUSTER_NAME}-control-plane"
+      name: "cluster-01-control-plane"
   kubeadmConfigSpec:
     initConfiguration:
       nodeRegistration:
@@ -74,61 +78,61 @@ spec:
         name: '{{ ds.meta_data.local_hostname }}'
         kubeletExtraArgs:
           cloud-provider: aws
-  version: "${KUBERNETES_VERSION}"
+  version: "1.25.4"
 ---
 kind: AWSMachineTemplate
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 metadata:
-  name: "${CLUSTER_NAME}-control-plane"
-  namespace: "${CLUSTER_NAME}"
+  name: "cluster-01-control-plane"
+  namespace: "cluster-01"
 spec:
   template:
     spec:
-      instanceType: "${AWS_CONTROL_PLANE_MACHINE_TYPE}"
+      instanceType: "t3.medium"
       iamInstanceProfile: "control-plane.cluster-api-provider-aws.sigs.k8s.io"
-      sshKeyName: "${AWS_SSH_KEY_NAME}"
+      sshKeyName: "aws"
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
-  name: "${CLUSTER_NAME}-md-0"
-  namespace: "${CLUSTER_NAME}"
+  name: "cluster-01-md-0"
+  namespace: "cluster-01"
 spec:
-  clusterName: "${CLUSTER_NAME}"
-  replicas: ${WORKER_MACHINE_COUNT}
+  clusterName: "cluster-01"
+  replicas: 1
   selector:
     matchLabels:
   template:
     spec:
-      clusterName: "${CLUSTER_NAME}"
-      version: "${KUBERNETES_VERSION}"
+      clusterName: "cluster-01"
+      version: "1.25.4"
       bootstrap:
         configRef:
-          name: "${CLUSTER_NAME}-md-0"
+          name: "cluster-01-md-0"
           apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
           kind: KubeadmConfigTemplate
       infrastructureRef:
-        name: "${CLUSTER_NAME}-md-0"
+        name: "cluster-01-md-0"
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AWSMachineTemplate
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
 metadata:
-  name: "${CLUSTER_NAME}-md-0"
-  namespace: "${CLUSTER_NAME}"
+  name: "cluster-01-md-0"
+  namespace: "cluster-01"
 spec:
   template:
     spec:
-      instanceType: "${AWS_NODE_MACHINE_TYPE}"
+      instanceType: "t3.medium"
       iamInstanceProfile: "nodes.cluster-api-provider-aws.sigs.k8s.io"
-      sshKeyName: "${AWS_SSH_KEY_NAME}"
+      sshKeyName: "aws"
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
-  name: "${CLUSTER_NAME}-md-0"
-  namespace: "${CLUSTER_NAME}"
+  name: "cluster-01-md-0"
+  namespace: "cluster-01"
 spec:
   template:
     spec:
