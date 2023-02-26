@@ -6,6 +6,7 @@ metadata:
   namespace: "${CLUSTER_NAME}"
   labels:
     cluster.x-k8s.io/cluster-name: "${CLUSTER_NAME}"
+    cilium-mesh: "${MESH_LABEL_SELECTOR}"
 spec:
   clusterNetwork:
     pods:
