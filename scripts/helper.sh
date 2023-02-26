@@ -52,7 +52,9 @@ generate_clusters_manifests() {
     set +x
     . $f
     set -x
-    envsubst < $REPO_ROOT/templates/aws/cluster.yaml > ./$CLUSTER_NAME.yaml
+    cluster_repo="$REPO_ROOT/clusters/$INITIALLY_MANAGED_BY/$CLUSTER_NAME"
+    mkdir -p $cluster_repo
+    envsubst < $REPO_ROOT/templates/aws/cluster.yaml > $cluster_repo/$CLUSTER_NAME.yaml
   done
 }
 
