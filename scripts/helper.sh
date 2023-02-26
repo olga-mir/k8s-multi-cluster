@@ -54,7 +54,7 @@ generate_clusters_manifests() {
     set -x
     cluster_repo="$REPO_ROOT/clusters/$INITIALLY_MANAGED_BY/$CLUSTER_NAME"
     mkdir -p $cluster_repo
-    envsubst < $REPO_ROOT/templates/aws/cluster.yaml > $cluster_repo/$CLUSTER_NAME.yaml
+    envsubst < $REPO_ROOT/templates/aws/cluster.yaml > $cluster_repo/capi-cluster.yaml
   done
 }
 

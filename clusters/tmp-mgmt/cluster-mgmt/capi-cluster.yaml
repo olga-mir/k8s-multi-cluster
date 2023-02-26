@@ -6,8 +6,6 @@ metadata:
   namespace: "cluster-mgmt"
   labels:
     cluster.x-k8s.io/cluster-name: "cluster-mgmt"
-    cluster-role: mgmt
-    cilium-mesh: none
 spec:
   clusterNetwork:
     pods:
