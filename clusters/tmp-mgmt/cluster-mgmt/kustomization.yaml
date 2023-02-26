@@ -5,10 +5,7 @@ resources:
   - platform.yaml
   - capi-cluster.yaml
 patches:
-- patch:
-    op: add
-    path: /metadata/namespace
-    value: cluster-mgmt
+- path: patch.yaml
   target:
     group: addons.cluster.x-k8s.io
     version: v1alpha1
