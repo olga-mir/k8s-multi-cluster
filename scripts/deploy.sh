@@ -51,7 +51,7 @@ kubectl wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Establ
 set -e
 
 # This has to be applied separately because it depends on CRDs that were created in gotk-components.
-kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/gotk-sync.yaml
+kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 
 clusterctl init \
   --core cluster-api:$CAPI_VERSION \
@@ -86,7 +86,7 @@ clusterctl init --kubeconfig $KUBECONFIG --kubeconfig-context $CONTEXT_MGMT \
   --control-plane kubeadm:$CAPI_VERSION \
   --infrastructure aws
 
-# Flux on mgmt cluster is installed by Flux on tmp-mgmt cluster in clusters/tmp-mgmt/platform-remote.yaml
+# Flux on mgmt cluster is installed by Flux on tmp-mgmt cluster in clusters/tmp-mgmt/cluster-mgmt/platform.yaml
 $KUBECTL_MGMT create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
   --from-file identity.pub=$FLUX_KEY_PATH.pub \
