@@ -1,11 +1,15 @@
 #!/bin/bash
 
 echo EXIT.
+echo
 echo Read the script and uncomment exit statement below.
 echo
 echo This script deletes all instances, NATs, EIPs, ELBs in account without checking if they belong
 echo to a cluster, therefore it can only be used in a test account where only this project is deployed
 echo
+echo if this script running before pivot completed, flux on tmp management cluster will still be recreating the cluster
+echo
+echo kind delete cluster
 exit 1
 
 set -eoux pipefail
