@@ -1,16 +1,17 @@
 #!/bin/bash
 
-KUBECONFIG=${1:-~/.kube/config}
+#KUBECONFIG=${1:-~/.kube/config}
+REPO_ROOT=$(git rev-parse --show-toplevel)
+KUBECONFIG=${K8S_MULTI_KUBECONFIG-$REPO_ROOT/.kubeconfig}
 
 report() {
   ctx=$1
-  kubectx $ctx
   KUBECTL="kubectl --kubeconfig $KUBECONFIG --context $ctx"
   echo -e "\n===== $ctx =====\n"
   set -x
   $KUBECTL get clusters -A
   $KUBECTL get po -A | grep -E "flux-system|cilium"
-  flux get all -A
+  flux get all -A --kubeconfig $KUBECONFIG --context $ctx
   set +x
 }
 

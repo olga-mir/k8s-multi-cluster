@@ -131,7 +131,7 @@ set +e
 while ! $KUBECTL_MGMT wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
-flux --context kind-kind suspend kustomization flux-system
+flux --kubeconfig $KUBECONFIG --context kind-kind suspend kustomization flux-system
 
 clusterctl move --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind --to-kubeconfig=$KUBECONFIG --to-kubeconfig-context $CONTEXT_MGMT -n cluster-mgmt
 
@@ -140,7 +140,7 @@ clusterctl move --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind --to-kub
 # to delete mgmt and all workload clusters in parallel
 # kind delete cluster
 
-# To finalize workload clusters bootstrap follow `$REPO_ROOT/scripts/workload-cluster.sh -h` instructions
+# To finalize workload clusters bootstrap follow `$REPO_ROOT/scripts/helper.sh -h` instructions
 
 } # end main
 

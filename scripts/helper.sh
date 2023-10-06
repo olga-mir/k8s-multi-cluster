@@ -10,9 +10,10 @@ set -euo pipefail
 REPO_ROOT=$(git rev-parse --show-toplevel)
 tempdir=$(mktemp -d)
 trap 'exit_handler $? $LINENO' EXIT
+echo $tempdir >> tempdirs.txt
 
 # Management cluster kube config and context
-KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
+KUBECONFIG=${K8S_MULTI_KUBECONFIG-$REPO_ROOT/.kubeconfig}
 CONTEXT_MGMT="cluster-mgmt-admin@cluster-mgmt"
 KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
 echo Management cluster kubectl config: $KUBECTL_MGMT
@@ -77,10 +78,13 @@ get_and_merge_kubeconfig() {
   # done
 
   # get workload cluster kubeconfig and merge it to the main one
-  cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
-  KUBECONFIG=$HOME/.kube/config:$tempdir/$cluster-config kubectl config view --raw=true --merge=true > $tempdir/merged-config
+  cp $KUBECONFIG $KUBECONFIG-$(date +%F_%H_%M_%S)
+  KUBECONFIG=$KUBECONFIG:$tempdir/$cluster-config kubectl config view --raw=true --merge=true > $tempdir/merged-config
   chmod 600 $tempdir/merged-config
-  mv $tempdir/merged-config $HOME/.kube/config
+  mv $tempdir/merged-config $KUBECONFIG
+
+
+
 }
 
 # installs Flux secret on the provided cluster,
@@ -114,7 +118,10 @@ wait_for() {
 
   cluster=$1
   set +e
-  while [ -z $($KUBECTL_MGMT wait cluster $cluster -n $cluster --for=condition=ControlPlaneReady) ]; do sleep 15; done
+  $($KUBECTL_MGMT wait cluster $cluster -n $cluster --for=condition=ControlPlaneReady) --timeout=2s
+  if [ $? != 0 ]; then
+    while [ -z $($KUBECTL_MGMT wait cluster $cluster -n $cluster --for=condition=ControlPlaneReady) ]; do sleep 15; done
+  fi
   set -e
 }
 
