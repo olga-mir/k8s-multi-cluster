@@ -16,6 +16,10 @@ FLUX_PATH=$REPO_ROOT/k8s-platform/flux/v$FLUXCD_VERSION
 mkdir -p $FLUX_PATH
 flux install --version=v$FLUXCD_VERSION --export > $FLUX_PATH/gotk-components.yaml
 cat > $FLUX_PATH/kustomization.yaml << EOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - gotk-components.yaml
 EOF
 
 

@@ -99,7 +99,7 @@ cp $KUBECONFIG ${KUBECONFIG}-$(date +%F_%H_%M_%S)
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
 sleep 90
-while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $tempdir/kubeconfig; do
+while ! clusterctl --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind get kubeconfig cluster-mgmt -n cluster-mgmt > $tempdir/kubeconfig; do
   echo $(date '+%F %H:%M:%S') re-try in 25s... && sleep 25
 done
 
