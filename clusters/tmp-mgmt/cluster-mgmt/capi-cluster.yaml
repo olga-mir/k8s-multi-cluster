@@ -31,7 +31,7 @@ spec:
   sshKeyName: "aws"
   network:
     vpc:
-      availabilityZoneUsageLimit: 2
+      availabilityZoneUsageLimit: 1
     cni:
       cniIngressRules:
       - description: "(cilium) VXLAN overlay"

@@ -6,7 +6,9 @@ This repository contains manifests and scripts to bootstrap clusters with [Clust
 
 * GitOps. Cluster(s) manifests are managed by [FluxCD](https://fluxcd.io/) and the repo structure follows ["repo per team example"](https://fluxcd.io/docs/guides/repository-structure/#repo-per-team).
 
-* Infrastruture provisioning. Deploy process follows ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`. Flux manifests are installed on each CAPI cluster using `ClusterResourceSet` (although this feature may become deprecated in future). Flux manifests are pre-generated and packaged as CRS ConfigMaps, flux is running in read-only mode (deploy key does not have write permissions).
+* Infrastruture provisioning. Deploy process follows ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`.
+Flux manifests are installed on each CAPI cluster by Flux running on management cluster.
+Even though it is not a recommended approach, in this project Flux is running in read-only mode (deploy key does not have write permissions).
 
 * CNI. [cilium](https://cilium.io/), currently it is installed by script when the cluster is bootstrapped because in kube-proxy-free mode it needs to know API endpoint, and it is known only in runtime in this project current state.
 
