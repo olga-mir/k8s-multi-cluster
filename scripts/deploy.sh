@@ -2,8 +2,9 @@
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
-# Don't provide default - user must explicitely provide their kubeconfig and accept that it
-# will be changed by this script. Otherwise config file will be created (or re-used) in repo root
+# User must explicitely provide their kubeconfig and accept that it can be changed by the script
+# If it's not provided a new kuebconfig file will be generated in the repo root and previous one will be delete
+# In this case user must configure kubectl to work with this file
 KUBECONFIG=${K8S_MULTI_KUBECONFIG}
 
 set -eoux pipefail
@@ -40,12 +41,13 @@ EOF
 
 set +u
 if [ -z "$KUBECONFIG" ]; then
-  mkdir -p $REPO_ROOT/.kube
-  KUBECONFIG=$REPO_ROOT/.kube/config
+  KUBECONFIG=$REPO_ROOT/.kubeconfig
   echo "kubeconfig path was not provided, make sure to use this kubeconfig in your k commands: $KUBECONFIG"
   rm -f $KUBECONFIG
 fi
 set -u
+
+############## ------ Setup kubeconfig ------
 
 # cleanup entries from previous runs: https://github.com/olga-mir/k8s-multi-cluster/issues/18
 # don't delete the whole file, a user maybe using their own kubeconfig
@@ -58,28 +60,32 @@ set -e
 
 CONTEXT_MGMT="$MGMT_CLUSTER_NAME-admin@$MGMT_CLUSTER_NAME"
 KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
+KUBECTL_TMP_MGMT="kubectl --kubeconfig $KUBECONFIG --context kind-kind"
+
 
 kind create cluster --config $tempdir/kind-bootstrap.yaml --kubeconfig=$KUBECONFIG
 
 # Install Flux. Flux is running in RO mode, and manifests are pre-generated.
 # If this path doesn't exist, try upgrading to latest version:
 # set the version in shared.env file, then run `./scripts/upgrade-components.sh`
-kubectl apply -f $REPO_ROOT/k8s-platform/flux/v$FLUXCD_VERSION/gotk-components.yaml
+$KUBECTL_TMP_MGMT apply -f $REPO_ROOT/k8s-platform/flux/v$FLUXCD_VERSION/gotk-components.yaml
 
-kubectl create secret generic flux-system -n flux-system \
+$KUBECTL_TMP_MGMT create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
   --from-file identity.pub=$FLUX_KEY_PATH.pub \
   --from-literal known_hosts="$GITHUB_KNOWN_HOSTS"
 
 set +e
-while ! kubectl wait crd kustomizations.kustomize.toolkit.fluxcd.io --for=condition=Established --timeout=5s; do sleep 5; done
-kubectl wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Established --timeout=10s
+while ! $KUBECTL_TMP_MGMT wait crd kustomizations.kustomize.toolkit.fluxcd.io --for=condition=Established --timeout=5s; do sleep 5; done
+$KUBECTL_TMP_MGMT wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Established --timeout=10s
 set -e
 
 # This has to be applied separately because it depends on CRDs that were created in gotk-components.
-kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
+$KUBECTL_TMP_MGMT apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 
 clusterctl init \
+  --kubeconfig=$KUBECONFIG \
+  --kubeconfig-context=kind-kind \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
@@ -97,16 +103,18 @@ while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $tempdir/kubeco
   echo $(date '+%F %H:%M:%S') re-try in 25s... && sleep 25
 done
 
-KUBECONFIG=$HOME/.kube/config:$tempdir/kubeconfig kubectl config view --raw=true --merge=true > $tempdir/merged-config
+KUBECONFIG=$KUBECONFIG:$tempdir/kubeconfig kubectl config view --raw=true --merge=true > $tempdir/merged-config
 chmod 600 $tempdir/merged-config
-mv $tempdir/merged-config $HOME/.kube/config
+mv $tempdir/merged-config $KUBECONFIG
 
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
 while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 15; done
 set -e
 
-clusterctl init --kubeconfig $KUBECONFIG --kubeconfig-context $CONTEXT_MGMT \
+clusterctl init \
+  --kubeconfig $KUBECONFIG \
+  --kubeconfig-context $CONTEXT_MGMT \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
