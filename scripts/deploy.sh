@@ -37,7 +37,8 @@ EOF
 kind create cluster --config $tempdir/kind-bootstrap.yaml
 
 # Install Flux. Flux is running in RO mode, and manifests are pre-generated.
-# Need to eliminate hardcoding the version in the script.
+# If this path doesn't exist, try upgrading to latest version.
+# set the version in shared.env file, then run `./scripts/upgrade-components.sh`
 kubectl apply -f $REPO_ROOT/k8s-platform/flux/v$FLUXCD_VERSION/gotk-components.yaml
 
 kubectl create secret generic flux-system -n flux-system \
