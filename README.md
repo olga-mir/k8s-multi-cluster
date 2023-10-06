@@ -39,15 +39,14 @@ This script without arguments will discover all workload clusters and perform al
 
 ## Adding a new cluster
 
-This is currently broken due to refactors, but once I am happy with the pattern this will be working again with the similar procedure as described below.
-
-To add a new cluster create config env for it by copying existing file (`./config/cluster-<num>.env`) and modifying values. This is intended to be manual as script can't or shouldn't guess this values (or too difficult in bash like calc next CIDR)
+To add a new cluster create config env for it by copying existing file (`./config/cluster-<num>.env`) and modifying values.
+This is intended to be manual step because the values must be provided by the end user, not guessed by the system, e.g. CIDRs.
 
 ```
 ./scripts/helper.sh -c cluster-02
 ```
 
-This will generate all necessary files and add the cluster to mgmt kustomization list too. Then it will be pushed to the repo (example commit from the script: https://github.com/olga-mir/k8s-multi-cluster/pull/10/commits/92ee7e094881969736ed666a0e732f073ebc53c6), where flux will apply it and capi will provision it. The `./scripts/workload-cluster.sh` is still waiting for the cluster to come up and finalize the installation.
+This will generate all necessary files and add the cluster to mgmt kustomization list too. Then it will be pushed to the repo (example commit from the script: https://github.com/olga-mir/k8s-multi-cluster/pull/10/commits/92ee7e094881969736ed666a0e732f073ebc53c6), where flux will apply it and capi will provision it. The `./scripts/helper.sh` is still waiting for the cluster to come up and finalize the installation.
 
 on mgmt cluster:
 ```
