@@ -40,12 +40,15 @@ EOF
 
 set +u
 if [ -z "$KUBECONFIG" ]; then
-  echo "kubeconfig path was not provided, will create new one in repo root: $REPO_ROOT"
-  KUBECONFIG=$REPO_ROOT
+  mkdir -p $REPO_ROOT/.kube
+  KUBECONFIG=$REPO_ROOT/.kube/config
+  echo "kubeconfig path was not provided, make sure to use this kubeconfig in your k commands: $KUBECONFIG"
+  rm -f $KUBECONFIG
 fi
 set -u
 
 # cleanup entries from previous runs: https://github.com/olga-mir/k8s-multi-cluster/issues/18
+# don't delete the whole file, a user maybe using their own kubeconfig
 MGMT_CLUSTER_NAME=cluster-mgmt
 set +e
 kubectl config delete-user $MGMT_CLUSTER_NAME-admin
@@ -84,7 +87,8 @@ clusterctl init \
 
 ############## ------ on AWS mgmt cluster ------
 
-# cp $KUBECONFIG ${KUBECONFIG}-$(date +%F_%H_%M_%S)
+# save a copy, just in case
+cp $KUBECONFIG ${KUBECONFIG}-$(date +%F_%H_%M_%S)
 
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
