@@ -1,13 +1,17 @@
 #!/bin/bash
-set -eoux pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
-KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
-CONTEXT_MGMT="cluster-mgmt-admin@cluster-mgmt"
-KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
+
+# Don't provide default - user must explicitely provide their kubeconfig and accept that it
+# will be changed by this script. Otherwise config file will be created (or re-used) in repo root
+KUBECONFIG=${K8S_MULTI_KUBECONFIG}
+
+set -eoux pipefail
 
 tempdir=$(mktemp -d)
 trap 'exit_handler $? $LINENO' EXIT
+echo $tempdir >> $REPO_ROOT/tempdirs.txt
+
 
 main() {
 
@@ -34,10 +38,28 @@ nodes:
   - role: worker
 EOF
 
-kind create cluster --config $tempdir/kind-bootstrap.yaml
+set +u
+if [ -z "$KUBECONFIG" ]; then
+  echo "kubeconfig path was not provided, will create new one in repo root: $REPO_ROOT"
+  KUBECONFIG=$REPO_ROOT
+fi
+set -u
+
+# cleanup entries from previous runs: https://github.com/olga-mir/k8s-multi-cluster/issues/18
+MGMT_CLUSTER_NAME=cluster-mgmt
+set +e
+kubectl config delete-user $MGMT_CLUSTER_NAME-admin
+kubectl config delete-cluster $MGMT_CLUSTER_NAME
+kubectl config delete-context $MGMT_CLUSTER_NAME-admin@$MGMT_CLUSTER_NAME
+set -e
+
+CONTEXT_MGMT="$MGMT_CLUSTER_NAME-admin@$MGMT_CLUSTER_NAME"
+KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
+
+kind create cluster --config $tempdir/kind-bootstrap.yaml --kubeconfig=$KUBECONFIG
 
 # Install Flux. Flux is running in RO mode, and manifests are pre-generated.
-# If this path doesn't exist, try upgrading to latest version.
+# If this path doesn't exist, try upgrading to latest version:
 # set the version in shared.env file, then run `./scripts/upgrade-components.sh`
 kubectl apply -f $REPO_ROOT/k8s-platform/flux/v$FLUXCD_VERSION/gotk-components.yaml
 
@@ -62,8 +84,7 @@ clusterctl init \
 
 ############## ------ on AWS mgmt cluster ------
 
-# Backup original kubeconfig file
-cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
+# cp $KUBECONFIG ${KUBECONFIG}-$(date +%F_%H_%M_%S)
 
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
