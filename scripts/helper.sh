@@ -82,9 +82,6 @@ get_and_merge_kubeconfig() {
   KUBECONFIG=$KUBECONFIG:$tempdir/$cluster-config kubectl config view --raw=true --merge=true > $tempdir/merged-config
   chmod 600 $tempdir/merged-config
   mv $tempdir/merged-config $KUBECONFIG
-
-
-
 }
 
 # installs Flux secret on the provided cluster,

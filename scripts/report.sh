@@ -1,6 +1,5 @@
 #!/bin/bash
 
-#KUBECONFIG=${1:-~/.kube/config}
 REPO_ROOT=$(git rev-parse --show-toplevel)
 KUBECONFIG=${K8S_MULTI_KUBECONFIG-$REPO_ROOT/.kubeconfig}
 
