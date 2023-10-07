@@ -1,7 +1,3 @@
-# platform components that need to be installed and run on the "workload" cluster of this cluster
-# which in case of tmp-mgmt cluster is the permanent `cluster-mgmt`
-#
-# https://fluxcd.io/flux/components/kustomize/kustomization/#remote-clusters--cluster-api
 ---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
@@ -14,7 +10,7 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  path: ./clusters/cluster-mgmt/flux-system
+  path: ./k8s-platform/flux/v2.1.1
   prune: true
   kubeConfig:
     secretRef:

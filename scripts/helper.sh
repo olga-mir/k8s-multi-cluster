@@ -36,12 +36,9 @@ while [[ $# -gt 0 ]]; do
       get_and_merge_kubeconfig $2
       ;;
     -g|--generate-clusters-manifests)
-      generate_clusters_manifests
+      generate_clusters_manifests ${2:-}
       ;;
     -h|--help)
-      show_help
-      ;;
-    *)
       show_help
       ;;
   esac
@@ -51,15 +48,47 @@ done
 }
 
 generate_clusters_manifests() {
-  echo Generating manifests for all clusters defined in $REPO_ROOT/config
-  for f in $REPO_ROOT/config/cluster*.env; do
+  local cluster=$1
+  # TODO for now only single cluster, name must be provided, but not checked
+  # echo Generating manifests for all clusters defined in $REPO_ROOT/config
+  echo Generating manifests for single cluster $cluster
+  #for f in $REPO_ROOT/config/cluster*.env; do
+  for f in $REPO_ROOT/config/$cluster.env; do
     set +x
     . $f
     set -x
-    cluster_repo="$REPO_ROOT/clusters/$INITIALLY_MANAGED_BY/$CLUSTER_NAME"
-    mkdir -p $cluster_repo
-    envsubst < $REPO_ROOT/templates/aws/cluster.yaml > $cluster_repo/capi-cluster.yaml
+    # CLUSTER_NAME comes from env file
+    cluster_dir="$REPO_ROOT/clusters/$INITIALLY_MANAGED_BY/$CLUSTER_NAME"
+    mkdir -p $cluster_dir
+    envsubst < $REPO_ROOT/templates/aws/cluster.yaml > $cluster_dir/capi-cluster.yaml
+    envsubst < $REPO_ROOT/templates/capi-workload-namespace.yaml > $cluster_dir/namespace.yaml
+    envsubst < $REPO_ROOT/templates/platform.yaml > $cluster_dir/platform.yaml
+    cp $REPO_ROOT/templates/kustomization.yaml $cluster_dir/kustomization.yaml
   done
+
+#  #if false; then
+#  if :; then
+#    git add $infra_dir
+#    git add $cluster_dir
+#    git add $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml
+#    git commit -m "feat: add or update generated files for $CLUSTER_NAME"
+#    git push origin $GITHUB_BRANCH
+#  fi
+
+#  # I don't want to give flux deploy key with write permissions, therefore 'bootstrap' is not an option
+#  # 'flux install --export' does not have options to generate gotk-sync.yaml, so instead this will be
+#  # instantiated from template
+#  # This is only needed when adding a cluster for the first time to the repo. On the following invocations, flux is deployed by flux instance on a management cluster
+#  cluster_dir=$REPO_ROOT/clusters/${CLUSTER_NAME}/flux-system
+#  mkdir -p $cluster_dir
+#  flux install --version=$FLUXCD_VERSION --export > $cluster_dir/gotk-components.yaml
+#  envsubst < $REPO_ROOT/templates/gotk-sync.yaml > $cluster_dir/gotk-sync.yaml
+#  generate_kustomizations $cluster_dir/kustomization.yaml clusters/$CLUSTER_NAME/kustomization.yaml
+#
+#  if [ -z "$(grep $CLUSTER_NAME $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml)" ]; then
+#    yq eval ". *+ {\"resources\":[\"$CLUSTER_NAME\"]}" $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml --inplace
+#  fi
+#
 }
 
 # Retrieve kubeconfig from `cluster-mgmt` for a workload cluster
