@@ -64,6 +64,12 @@ generate_clusters_manifests() {
     envsubst < $REPO_ROOT/templates/capi-workload-namespace.yaml > $cluster_dir/namespace.yaml
     envsubst < $REPO_ROOT/templates/platform.yaml > $cluster_dir/platform.yaml
     cp $REPO_ROOT/templates/kustomization.yaml $cluster_dir/kustomization.yaml
+
+    # Add new cluster to mgmt cluster kustomization
+    kustomization_file=$REPO_ROOT/clusters/$INITIALLY_MANAGED_BY/kustomization.yaml
+    if [ -z "$(grep $CLUSTER_NAME $kustomization_file)" ]; then
+      yq eval ". *+ {\"resources\":[\"$CLUSTER_NAME\"]}" $kustomization_file --inplace
+    fi
   done
 
 #  #if false; then
@@ -85,9 +91,6 @@ generate_clusters_manifests() {
 #  envsubst < $REPO_ROOT/templates/gotk-sync.yaml > $cluster_dir/gotk-sync.yaml
 #  generate_kustomizations $cluster_dir/kustomization.yaml clusters/$CLUSTER_NAME/kustomization.yaml
 #
-#  if [ -z "$(grep $CLUSTER_NAME $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml)" ]; then
-#    yq eval ". *+ {\"resources\":[\"$CLUSTER_NAME\"]}" $REPO_ROOT/infrastructure/control-plane-cluster/kustomization.yaml --inplace
-#  fi
 #
 }
 
