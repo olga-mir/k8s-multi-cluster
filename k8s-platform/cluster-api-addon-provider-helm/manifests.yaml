@@ -54,7 +54,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HelmChartProxy is the Schema for the helmchartproxies API
+        description: HelmChartProxy is the Schema for the helmchartproxies API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -72,7 +72,9 @@ spec:
             description: HelmChartProxySpec defines the desired state of HelmChartProxy.
             properties:
               chartName:
-                description: ChartName is the name of the Helm chart in the repository.
+                description: 'ChartName is the name of the Helm chart in the repository.
+                  e.g. chart-path oci://repo-url/chart-name as chartName: chart-name
+                  and https://repo-url/chart-name as chartName: chart-name'
                 type: string
               clusterSelector:
                 description: ClusterSelector selects Clusters in the same namespace
@@ -127,12 +129,127 @@ spec:
                   be installed on each selected Cluster. If it is not specified, it
                   will be set to the default namespace.
                 type: string
+              options:
+                description: Options represents CLI flags passed to Helm operations
+                  (i.e. install, upgrade, delete) and include options such as wait,
+                  skipCRDs, timeout, waitForJobs, etc.
+                properties:
+                  atomic:
+                    description: Atomic indicates the installation/upgrade process
+                      to delete the installation or rollback on failure. If 'Atomic'
+                      is set, wait will be enabled automatically during helm install/upgrade
+                      operation.
+                    type: boolean
+                  dependencyUpdate:
+                    description: DependencyUpdate indicates the Helm install/upgrade
+                      action to get missing dependencies.
+                    type: boolean
+                  disableHooks:
+                    description: DisableHooks prevents hooks from running during the
+                      Helm install action.
+                    type: boolean
+                  disableOpenAPIValidation:
+                    description: DisableOpenAPIValidation controls whether OpenAPI
+                      validation is enforced.
+                    type: boolean
+                  install:
+                    description: Install represents CLI flags passed to Helm install
+                      operation which can be used to control behaviour of helm Install
+                      operations via options like wait, skipCrds, timeout, waitForJobs,
+                      etc.
+                    properties:
+                      createNamespace:
+                        description: CreateNamespace indicates the Helm install/upgrade
+                          action to create the HelmChartProxySpec.ReleaseNamespace
+                          if it does not exist yet. On uninstall, the namespace will
+                          not be garbage collected. If it is not specified by user,
+                          will be set to default 'true'.
+                        type: boolean
+                      includeCRDs:
+                        description: IncludeCRDs determines whether CRDs stored as
+                          a part of helm templates directory should be installed.
+                        type: boolean
+                    type: object
+                  options:
+                    description: SubNotes determines whether sub-notes should be rendered
+                      in the chart.
+                    type: boolean
+                  skipCRDs:
+                    description: SkipCRDs controls whether CRDs should be installed
+                      during install/upgrade operation. By default, CRDs are installed
+                      if not already present. If set, no CRDs will be installed.
+                    type: boolean
+                  timeout:
+                    description: Timeout is the time to wait for any individual Kubernetes
+                      operation (like resource creation, Jobs for hooks, etc.) during
+                      the performance of a Helm install action. Defaults to '10 min'.
+                    type: string
+                  uninstall:
+                    description: Uninstall represents CLI flags passed to Helm uninstall
+                      operation which can be used to control behaviour of helm Uninstall
+                      operation via options like wait, timeout, etc.
+                    properties:
+                      description:
+                        description: Description represents human readable information
+                          to be shown on release uninstall.
+                        type: string
+                      keepHistory:
+                        description: KeepHistory defines whether historical revisions
+                          of a release should be saved. If it's set, helm uninstall
+                          operation will not delete the history of the release. The
+                          helm storage backend (secret, configmap, etc) will be retained
+                          in the cluster.
+                        type: boolean
+                    type: object
+                  upgrade:
+                    description: Upgrade represents CLI flags passed to Helm upgrade
+                      operation which can be used to control behaviour of helm Upgrade
+                      operations via options like wait, skipCrds, timeout, waitForJobs,
+                      etc.
+                    properties:
+                      cleanupOnFail:
+                        description: CleanupOnFail indicates the upgrade action to
+                          delete newly-created resources on a failed update operation.
+                        type: boolean
+                      force:
+                        description: Force indicates to ignore certain warnings and
+                          perform the helm release upgrade anyway. This should be
+                          used with caution.
+                        type: boolean
+                      maxHistory:
+                        description: MaxHistory limits the maximum number of revisions
+                          saved per release
+                        type: integer
+                      recreate:
+                        description: Recreate will (if true) recreate pods after a
+                          rollback.
+                        type: boolean
+                      resetValues:
+                        description: ResetValues will reset the values to the chart's
+                          built-ins rather than merging with existing.
+                        type: boolean
+                      reuseValues:
+                        description: ReuseValues will re-use the user's last supplied
+                          values.
+                        type: boolean
+                    type: object
+                  wait:
+                    description: Wait enables the waiting for resources to be ready
+                      after a Helm install/upgrade has been performed.
+                    type: boolean
+                  waitForJobs:
+                    description: WaitForJobs enables waiting for jobs to complete
+                      after a Helm install/upgrade has been performed.
+                    type: boolean
+                type: object
               releaseName:
                 description: ReleaseName is the release name of the installed Helm
                   chart. If it is not specified, a name will be generated.
                 type: string
               repoURL:
-                description: RepoURL is the URL of the Helm chart repository.
+                description: 'RepoURL is the URL of the Helm chart repository. e.g.
+                  chart-path oci://repo-url/chart-name as repoURL: oci://repo-url
+                  and https://repo-url/chart-name as repoURL: https://repo-url'
                 type: string
               valuesTemplate:
                 description: ValuesTemplate is an inline YAML representing the values
@@ -202,7 +319,7 @@ spec:
                 description: MatchingClusters is the list of references to Clusters
                   selected by the ClusterSelector.
                 items:
-                  description: 'ObjectReference contains enough information to let
+                  description: "ObjectReference contains enough information to let
                     you inspect or modify the referred object. --- New uses of this
                     type are discouraged because of difficulty describing its usage
                     when embedded in APIs. 1. Ignored fields.  It includes many fields
@@ -210,10 +327,10 @@ spec:
                     and FieldPath are both very rarely valid in actual usage. 2. Invalid
                     usage help.  It is impossible to add specific help for individual
                     usage.  In most embedded usages, there are particular restrictions
-                    like, "must refer only to types A and B" or "UID not honored"
-                    or "name must be restricted". Those cannot be well described when
-                    embedded. 3. Inconsistent validation.  Because the usages are
-                    different, the validation rules are different by usage, which
+                    like, \"must refer only to types A and B\" or \"UID not honored\"
+                    or \"name must be restricted\". Those cannot be well described
+                    when embedded. 3. Inconsistent validation.  Because the usages
+                    are different, the validation rules are different by usage, which
                     makes it hard for users to predict what will happen. 4. The fields
                     are both imprecise and overly precise.  Kind is not a precise
                     mapping to a URL. This can produce ambiguity during interpretation
@@ -221,12 +338,12 @@ spec:
                     on the group,resource tuple and the version of the actual struct
                     is irrelevant. 5. We cannot easily change it.  Because this type
                     is embedded in many locations, updates to this type will affect
-                    numerous schemas.  Don''t make new APIs embed an underspecified
-                    API type they do not control. Instead of using this type, create
+                    numerous schemas.  Don't make new APIs embed an underspecified
+                    API type they do not control. \n Instead of using this type, create
                     a locally provided and used type that is well-focused on your
                     reference. For example, ServiceReferences for admission registration:
                     https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                    .'
+                    ."
                   properties:
                     apiVersion:
                       description: API version of the referent.
@@ -324,7 +441,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: HelmReleaseProxy is the Schema for the helmreleaseproxies API
+        description: HelmReleaseProxy is the Schema for the helmreleaseproxies API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -342,7 +459,9 @@ spec:
             description: HelmReleaseProxySpec defines the desired state of HelmReleaseProxy.
             properties:
               chartName:
-                description: ChartName is the name of the Helm chart in the repository.
+                description: 'ChartName is the name of the Helm chart in the repository.
+                  e.g. chart-path oci://repo-url/chart-name as chartName: chart-name
+                  and https://repo-url/chart-name as chartName: chart-name'
                 type: string
               clusterRef:
                 description: ClusterRef is a reference to the Cluster to install the
@@ -387,12 +506,128 @@ spec:
                   be installed on the referenced Cluster. If it is not specified,
                   it will be set to the default namespace.
                 type: string
+              options:
+                description: Options represents the helm setting options which can
+                  be used to control behaviour of helm operations(Install, Upgrade,
+                  Delete, etc) via options like wait, skipCrds, timeout, waitForJobs,
+                  etc.
+                properties:
+                  atomic:
+                    description: Atomic indicates the installation/upgrade process
+                      to delete the installation or rollback on failure. If 'Atomic'
+                      is set, wait will be enabled automatically during helm install/upgrade
+                      operation.
+                    type: boolean
+                  dependencyUpdate:
+                    description: DependencyUpdate indicates the Helm install/upgrade
+                      action to get missing dependencies.
+                    type: boolean
+                  disableHooks:
+                    description: DisableHooks prevents hooks from running during the
+                      Helm install action.
+                    type: boolean
+                  disableOpenAPIValidation:
+                    description: DisableOpenAPIValidation controls whether OpenAPI
+                      validation is enforced.
+                    type: boolean
+                  install:
+                    description: Install represents CLI flags passed to Helm install
+                      operation which can be used to control behaviour of helm Install
+                      operations via options like wait, skipCrds, timeout, waitForJobs,
+                      etc.
+                    properties:
+                      createNamespace:
+                        description: CreateNamespace indicates the Helm install/upgrade
+                          action to create the HelmChartProxySpec.ReleaseNamespace
+                          if it does not exist yet. On uninstall, the namespace will
+                          not be garbage collected. If it is not specified by user,
+                          will be set to default 'true'.
+                        type: boolean
+                      includeCRDs:
+                        description: IncludeCRDs determines whether CRDs stored as
+                          a part of helm templates directory should be installed.
+                        type: boolean
+                    type: object
+                  options:
+                    description: SubNotes determines whether sub-notes should be rendered
+                      in the chart.
+                    type: boolean
+                  skipCRDs:
+                    description: SkipCRDs controls whether CRDs should be installed
+                      during install/upgrade operation. By default, CRDs are installed
+                      if not already present. If set, no CRDs will be installed.
+                    type: boolean
+                  timeout:
+                    description: Timeout is the time to wait for any individual Kubernetes
+                      operation (like resource creation, Jobs for hooks, etc.) during
+                      the performance of a Helm install action. Defaults to '10 min'.
+                    type: string
+                  uninstall:
+                    description: Uninstall represents CLI flags passed to Helm uninstall
+                      operation which can be used to control behaviour of helm Uninstall
+                      operation via options like wait, timeout, etc.
+                    properties:
+                      description:
+                        description: Description represents human readable information
+                          to be shown on release uninstall.
+                        type: string
+                      keepHistory:
+                        description: KeepHistory defines whether historical revisions
+                          of a release should be saved. If it's set, helm uninstall
+                          operation will not delete the history of the release. The
+                          helm storage backend (secret, configmap, etc) will be retained
+                          in the cluster.
+                        type: boolean
+                    type: object
+                  upgrade:
+                    description: Upgrade represents CLI flags passed to Helm upgrade
+                      operation which can be used to control behaviour of helm Upgrade
+                      operations via options like wait, skipCrds, timeout, waitForJobs,
+                      etc.
+                    properties:
+                      cleanupOnFail:
+                        description: CleanupOnFail indicates the upgrade action to
+                          delete newly-created resources on a failed update operation.
+                        type: boolean
+                      force:
+                        description: Force indicates to ignore certain warnings and
+                          perform the helm release upgrade anyway. This should be
+                          used with caution.
+                        type: boolean
+                      maxHistory:
+                        description: MaxHistory limits the maximum number of revisions
+                          saved per release
+                        type: integer
+                      recreate:
+                        description: Recreate will (if true) recreate pods after a
+                          rollback.
+                        type: boolean
+                      resetValues:
+                        description: ResetValues will reset the values to the chart's
+                          built-ins rather than merging with existing.
+                        type: boolean
+                      reuseValues:
+                        description: ReuseValues will re-use the user's last supplied
+                          values.
+                        type: boolean
+                    type: object
+                  wait:
+                    description: Wait enables the waiting for resources to be ready
+                      after a Helm install/upgrade has been performed.
+                    type: boolean
+                  waitForJobs:
+                    description: WaitForJobs enables waiting for jobs to complete
+                      after a Helm install/upgrade has been performed.
+                    type: boolean
+                type: object
               releaseName:
                 description: ReleaseName is the release name of the installed Helm
                   chart. If it is not specified, a name will be generated.
                 type: string
               repoURL:
-                description: RepoURL is the URL of the Helm chart repository.
+                description: 'RepoURL is the URL of the Helm chart repository. e.g.
+                  chart-path oci://repo-url/chart-name as repoURL: oci://repo-url
+                  and https://repo-url/chart-name as repoURL: https://repo-url'
                 type: string
               values:
                 description: Values is an inline YAML representing the values for
@@ -601,6 +836,7 @@ rules:
   - watch
 - apiGroups:
   - bootstrap.cluster.x-k8s.io
+  - clusterctl.cluster.x-k8s.io
   - controlplane.cluster.x-k8s.io
   - infrastructure.cluster.x-k8s.io
   resources:
@@ -791,10 +1027,8 @@ spec:
     spec:
       containers:
       - args:
-        - --health-probe-bind-address=:8081
-        - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
-        image: olmigar/cluster-api-addon-provider-helm:20221229
+        image: olmigar/cluster-api-helm-controller-arm64:dev
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
@@ -817,24 +1051,6 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
-      - args:
-        - --secure-listen-address=0.0.0.0:8443
-        - --upstream=http://127.0.0.1:8080/
-        - --logtostderr=true
-        - --v=0
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
-        name: kube-rbac-proxy
-        ports:
-        - containerPort: 8443
-          name: https
-          protocol: TCP
-        resources:
-          limits:
-            cpu: 500m
-            memory: 128Mi
-          requests:
-            cpu: 5m
-            memory: 64Mi
       serviceAccountName: caaph-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
@@ -886,7 +1102,7 @@ webhooks:
       namespace: caaph-system
       path: /mutate-addons-cluster-x-k8s-io-v1alpha1-helmchartproxy
   failurePolicy: Fail
-  name: mhelmchartproxy.kb.io
+  name: helmchartproxy.kb.io
   rules:
   - apiGroups:
     - addons.cluster.x-k8s.io
@@ -906,7 +1122,7 @@ webhooks:
       namespace: caaph-system
       path: /mutate-addons-cluster-x-k8s-io-v1alpha1-helmreleaseproxy
   failurePolicy: Fail
-  name: mhelmreleaseproxy.kb.io
+  name: helmreleaseproxy.kb.io
   rules:
   - apiGroups:
     - addons.cluster.x-k8s.io

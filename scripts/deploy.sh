@@ -1,13 +1,18 @@
 #!/bin/bash
-set -eoux pipefail
 
 REPO_ROOT=$(git rev-parse --show-toplevel)
-KUBECONFIG=${KUBECONFIG:-$HOME/.kube/config}
-CONTEXT_MGMT="cluster-mgmt-admin@cluster-mgmt"
-KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
+
+# User must explicitely provide their kubeconfig and accept that it can be changed by the script
+# If it's not provided a new kuebconfig file will be generated in the repo root and previous one will be delete
+# In this case user must configure kubectl to work with this file
+KUBECONFIG=${K8S_MULTI_KUBECONFIG}
+
+set -eoux pipefail
 
 tempdir=$(mktemp -d)
 trap 'exit_handler $? $LINENO' EXIT
+echo $tempdir >> $REPO_ROOT/tempdirs.txt
+
 
 main() {
 
@@ -34,26 +39,53 @@ nodes:
   - role: worker
 EOF
 
-kind create cluster --config $tempdir/kind-bootstrap.yaml
+set +u
+if [ -z "$KUBECONFIG" ]; then
+  KUBECONFIG=$REPO_ROOT/.kubeconfig
+  echo "kubeconfig path was not provided, make sure to use this kubeconfig in your k commands: $KUBECONFIG"
+  rm -f $KUBECONFIG
+fi
+set -u
+
+############## ------ Setup kubeconfig ------
+
+# cleanup entries from previous runs: https://github.com/olga-mir/k8s-multi-cluster/issues/18
+# don't delete the whole file, a user maybe using their own kubeconfig
+MGMT_CLUSTER_NAME=cluster-mgmt
+set +e
+kubectl config delete-user $MGMT_CLUSTER_NAME-admin
+kubectl config delete-cluster $MGMT_CLUSTER_NAME
+kubectl config delete-context $MGMT_CLUSTER_NAME-admin@$MGMT_CLUSTER_NAME
+set -e
+
+CONTEXT_MGMT="$MGMT_CLUSTER_NAME-admin@$MGMT_CLUSTER_NAME"
+KUBECTL_MGMT="kubectl --kubeconfig $KUBECONFIG --context $CONTEXT_MGMT"
+KUBECTL_TMP_MGMT="kubectl --kubeconfig $KUBECONFIG --context kind-kind"
+
+
+kind create cluster --config $tempdir/kind-bootstrap.yaml --kubeconfig=$KUBECONFIG
 
 # Install Flux. Flux is running in RO mode, and manifests are pre-generated.
-# Need to eliminate hardcoding the version in the script.
-kubectl apply -f $REPO_ROOT/k8s-platform/flux/v0.38.1/gotk-components.yaml
+# If this path doesn't exist, try upgrading to latest version:
+# set the version in shared.env file, then run `./scripts/upgrade-components.sh`
+$KUBECTL_TMP_MGMT apply -f $REPO_ROOT/k8s-platform/flux/v$FLUXCD_VERSION/gotk-components.yaml
 
-kubectl create secret generic flux-system -n flux-system \
+$KUBECTL_TMP_MGMT create secret generic flux-system -n flux-system \
   --from-file identity=$FLUX_KEY_PATH  \
   --from-file identity.pub=$FLUX_KEY_PATH.pub \
   --from-literal known_hosts="$GITHUB_KNOWN_HOSTS"
 
 set +e
-while ! kubectl wait crd kustomizations.kustomize.toolkit.fluxcd.io --for=condition=Established --timeout=5s; do sleep 5; done
-kubectl wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Established --timeout=10s
+while ! $KUBECTL_TMP_MGMT wait crd kustomizations.kustomize.toolkit.fluxcd.io --for=condition=Established --timeout=5s; do sleep 5; done
+$KUBECTL_TMP_MGMT wait crd gitrepositories.source.toolkit.fluxcd.io --for=condition=Established --timeout=10s
 set -e
 
 # This has to be applied separately because it depends on CRDs that were created in gotk-components.
-kubectl apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
+$KUBECTL_TMP_MGMT apply -f $REPO_ROOT/clusters/tmp-mgmt/flux-system/gotk-sync.yaml
 
 clusterctl init \
+  --kubeconfig=$KUBECONFIG \
+  --kubeconfig-context=kind-kind \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
@@ -61,26 +93,28 @@ clusterctl init \
 
 ############## ------ on AWS mgmt cluster ------
 
-# Backup original kubeconfig file
-cp $HOME/.kube/config $HOME/.kube/config-$(date +%F_%H_%M_%S)
+# save a copy, just in case
+cp $KUBECONFIG ${KUBECONFIG}-$(date +%F_%H_%M_%S)
 
 # kubeconfig is available when this secret is ready: `k get secret mgmt-kubeconfig`
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster kubeconfig to become available
 sleep 90
-while ! clusterctl get kubeconfig cluster-mgmt -n cluster-mgmt > $tempdir/kubeconfig; do
+while ! clusterctl --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind get kubeconfig cluster-mgmt -n cluster-mgmt > $tempdir/kubeconfig; do
   echo $(date '+%F %H:%M:%S') re-try in 25s... && sleep 25
 done
 
-KUBECONFIG=$HOME/.kube/config:$tempdir/kubeconfig kubectl config view --raw=true --merge=true > $tempdir/merged-config
+KUBECONFIG=$KUBECONFIG:$tempdir/kubeconfig kubectl config view --raw=true --merge=true > $tempdir/merged-config
 chmod 600 $tempdir/merged-config
-mv $tempdir/merged-config $HOME/.kube/config
+mv $tempdir/merged-config $KUBECONFIG
 
 set +e
 echo $(date '+%F %H:%M:%S') - Waiting for permanent management cluster to become responsive
 while [ -z $($KUBECTL_MGMT get pod -n kube-system -l component=kube-apiserver -o name) ]; do sleep 15; done
 set -e
 
-clusterctl init --kubeconfig $KUBECONFIG --kubeconfig-context $CONTEXT_MGMT \
+clusterctl init \
+  --kubeconfig $KUBECONFIG \
+  --kubeconfig-context $CONTEXT_MGMT \
   --core cluster-api:$CAPI_VERSION \
   --bootstrap kubeadm:$CAPI_VERSION \
   --control-plane kubeadm:$CAPI_VERSION \
@@ -97,7 +131,7 @@ set +e
 while ! $KUBECTL_MGMT wait crd clusters.cluster.x-k8s.io --for=condition=Established; do sleep 15; done
 set -e
 
-flux --context kind-kind suspend kustomization flux-system
+flux --kubeconfig $KUBECONFIG --context kind-kind suspend kustomization flux-system
 
 clusterctl move --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind --to-kubeconfig=$KUBECONFIG --to-kubeconfig-context $CONTEXT_MGMT -n cluster-mgmt
 
@@ -106,7 +140,7 @@ clusterctl move --kubeconfig $KUBECONFIG --kubeconfig-context kind-kind --to-kub
 # to delete mgmt and all workload clusters in parallel
 # kind delete cluster
 
-# To finalize workload clusters bootstrap follow `$REPO_ROOT/scripts/workload-cluster.sh -h` instructions
+# To finalize workload clusters bootstrap follow `$REPO_ROOT/scripts/helper.sh -h` instructions
 
 } # end main
 
