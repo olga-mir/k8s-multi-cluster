@@ -10,7 +10,7 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  path: ./k8s-platform/flux/v2.1.1
+  path: ./clusters/cluster-mgmt/flux-system
   prune: true
   kubeConfig:
     secretRef:
