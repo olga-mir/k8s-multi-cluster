@@ -32,3 +32,4 @@ spec:
   prune: true
   dependsOn:
   - name: caaph
+    namespace: ${CLUSTER_NAME}

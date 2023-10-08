@@ -32,3 +32,4 @@ spec:
   prune: true
   dependsOn:
   - name: caaph
+    namespace: cluster-01
