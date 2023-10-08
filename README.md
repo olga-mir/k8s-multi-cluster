@@ -11,7 +11,8 @@ Flux manifests are installed on each CAPI cluster by Flux running on the managem
 Even though it is not a recommended approach, in this project Flux is running in read-only mode (deploy key does not have write permissions).
 
 * CNI. [cilium](https://cilium.io/). Because CNI needs to be installed during cluster bootstrap before anything else runs on the cluster it can't be managed by Flux. CAPI implemented [Cluster API Addon Provider for Helm (CAAPH)](https://github.com/kubernetes-sigs/cluster-api-addon-provider-helm) which allows to install helm charts for workload cluster during its bootstrap.
-This might be possible to implement with: https://github.com/kubernetes-sigs/cluster-api-addon-provider-helm instead.
+
+This might be possible to implement with: https://fluxcd.io/flux/components/kustomize/kustomizations/#remote-clusterscluster-api instead.
 
 # Installation
 
@@ -22,8 +23,6 @@ Refer to [aws/README.md](aws/README.md) for more details what required for initi
 
 Setup workload clusters config as described in [config/README.md](config/README.md). Workload clusters can be set and removed on the go, they don't need to exist before running the deploy script.
 
-More details on deploy process can be found here: [docs/bootstrap-and-pivot.md](docs/bootstrap-and-pivot.md)
-
 ## Deploy
 
 Deploy permanent management cluster on AWS (using temp `kind` cluster and then pivot)
@@ -31,6 +30,7 @@ Deploy permanent management cluster on AWS (using temp `kind` cluster and then p
 ```
 ./scripts/deploy.sh
 ```
+
 Kubeconfig file path can be provided in `K8S_MULTI_KUBECONFIG` env variable, it doesn't have to be an empty kubeconfig, but it will be modified by the script adding and removing entries for clusters and contexts that it manages.
 If this variable is not provided then a kubeconfig in this repo root location will be created.
 
@@ -89,29 +89,16 @@ When CAPI way is not working for some reasons (bugs), then you need to delete AW
 Alternatively, use script `./scripts/brutal-aws-cleanup.sh` - this script deletes everything it can find (in NATs, EIPs, EC2 instances, ELBs, but not VPCs) without checking if they are related to the clusters in this project. So it is not recommended to use if there are other resources in the account.
 Apparenty deleting VPC is not for the faint-hearted, check out https://github.com/isovalent/aws-delete-vpc
 
-# Roadmap
+# Future Features
 
-Initially this project was created to explore Multi Cluster Services implemented with Cilium Cluster mesh. At that time I had kOps AWS cluster and I figured instead of duplicating the cluster.yaml and running the same process I'd try out CAPI. This is fun, but cluster mesh is still not implemented :D My current goal is to get to the cilium mesh asap, but utilising CAPI patterns and not sacrificing good CAPI patterns along the way.
-
-Too much bash?
-
-yes unfortunatelly. There are few reasons for that:
-* CAPI itself is not GitOps-able at this point. It is possible to generate manifests that are applied by the `clusterctl` but it is very fragile and requires ugly patching along the way (see https://github.com/olga-mir/k8s-multi-cluster/pull/14)
-* replacing aws creds with IRSA obviously not possible for `kind` cluster, but it is also problematic to do on AWS clusters if I want to keep this open source and not expose my AWS account ID (it is not "too" sensitive but better safe than sorry)
-* Flux secret is also patched on the fly. It could be avoided with SOPs but I don't want to store even encrypted secrets in repo and SOPs future is not very clear.
-* Some of the waits and massaging can be backed into CAPI Runtime Extentions, I'd love to get there but it all comes down to available time.
-
-But all the bash scripts as they are now could be replaced by a nicer Go-implementation. This is again only time constraint.
-
-Features to implement:
 * Cilium cluster mesh and Gateway API
 * Private clusters
-* Cluster Class
 * Runtime Extentions
+* Eliminate all bash scripts - use SDK, extentions, CAPI operator, etc. Not all of these were available when I started this project
 
 # Resources
 
 * https://www.weave.works/blog/manage-thousands-of-clusters-with-gitops-and-the-cluster-api
 * [Weaveworks' The Power of GitOps with Flux youtube playlist](https://www.youtube.com/playlist?list=PL9lTuCFNLaD3fI_g-NXWVxopnJ0adn65d). One of the videos dedicated to CAPI
 * [Cluster API Addon Provider for Helm](https://github.com/kubernetes-sigs/cluster-api-addon-provider-helm)
-
+* [eCHO Episode 94: Cluster API and Cilium Cluster Mesh](https://www.youtube.com/live/HVqQhMRpUR4?si=UxZkr00vD2-pTSjF) - but you'll have to be very patient with this one. There is other interesting stuff like compiling linux kernel and `virtink`.
