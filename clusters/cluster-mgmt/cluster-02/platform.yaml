@@ -32,4 +32,4 @@ spec:
   prune: true
   dependsOn:
   - name: caaph
-    namespace: cluster-02
+    namespace: flux-system
