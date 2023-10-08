@@ -64,7 +64,7 @@ cluster-mgmt   cluster-mgmt   Provisioned    13m
 
 ## Clusters
 
-[clusters-design](./docs/clusters.png)
+![clusters-design](./docs/clusters.png)
 
 ## Directory structure
 
