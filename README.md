@@ -6,11 +6,12 @@ This repository contains manifests and scripts to bootstrap clusters with [Clust
 
 * GitOps. Cluster(s) manifests are managed by [FluxCD](https://fluxcd.io/) and the repo structure follows ["repo per team example"](https://fluxcd.io/docs/guides/repository-structure/#repo-per-team).
 
-* Infrastruture provisioning. Deploy process follows ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`.
-Flux manifests are installed on each CAPI cluster by Flux running on management cluster.
+* Infrastruture provisioning. Clusters are deployed using ["Boostrap & Pivot"](https://cluster-api.sigs.k8s.io/clusterctl/commands/move.html) approach with initial temporary management cluster running on `kind`.
+Flux manifests are installed on each CAPI cluster by Flux running on the management cluster.
 Even though it is not a recommended approach, in this project Flux is running in read-only mode (deploy key does not have write permissions).
 
-* CNI. [cilium](https://cilium.io/), currently it is installed by script when the cluster is bootstrapped because in kube-proxy-free mode it needs to know API endpoint, and it is known only in runtime in this project current state.
+* CNI. [cilium](https://cilium.io/). Because CNI needs to be installed during cluster bootstrap before anything else runs on the cluster it can't be managed by Flux. CAPI implemented [Cluster API Addon Provider for Helm (CAAPH)](https://github.com/kubernetes-sigs/cluster-api-addon-provider-helm) which allows to install helm charts for workload cluster during its bootstrap.
+This might be possible to implement with: https://github.com/kubernetes-sigs/cluster-api-addon-provider-helm instead.
 
 # Installation
 
@@ -25,16 +26,16 @@ More details on deploy process can be found here: [docs/bootstrap-and-pivot.md](
 
 ## Deploy
 
-deploy permanent management cluster on AWS (using temp `kind` cluster and then pivot)
+Deploy permanent management cluster on AWS (using temp `kind` cluster and then pivot)
+
 ```
 ./scripts/deploy.sh
 ```
-:warning: for each cluster which is deployed during this script a kubeconfig is merged to `$HOME/.kube/config` preserving any entries that previously existed there. There is no control to change this, but a backup saved to `$HOME/.kube/config-$(date +%F_%H_%M_%S)` just in case.
+Kubeconfig file path can be provided in `K8S_MULTI_KUBECONFIG` env variable, it doesn't have to be an empty kubeconfig, but it will be modified by the script adding and removing entries for clusters and contexts that it manages.
+If this variable is not provided then a kubeconfig in this repo root location will be created.
 
-flux on management cluster will apply CAPI manifests that are currently present in the repo.
+By choice, Flux is deployed in read only mode, and therefore it can't be bootstrapped as described in official documents. This requires additional steps including creating flux secret, this is done by separate script:
 
-When script is complete run script to finalize workload clusters and flux secret (design choice to avoid storing encrypted secrets in repo, and using sops that currently seems unmaintained).
-This script without arguments will discover all workload clusters and perform all necessary adjustments:
 ```
 ./scripts/helpers.sh -c
 ```
@@ -58,6 +59,16 @@ cluster-01     cluster-01     Provisioned    12m
 cluster-02     cluster-02     Provisioning   60s
 cluster-mgmt   cluster-mgmt   Provisioned    13m
 ```
+
+# Architecture
+
+## Clusters
+
+[clusters-design](./docs/clusters.png)
+
+## Directory structure
+
+[directory-structure](./docs/directory-structure.png)
 
 # Cleanup
 
