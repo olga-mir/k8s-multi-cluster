@@ -68,7 +68,7 @@ cluster-mgmt   cluster-mgmt   Provisioned    13m
 
 ## Directory structure
 
-[directory-structure](./docs/directory-structure.png)
+![directory-structure](./docs/directory-structure.png)
 
 # Cleanup
 
