@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
-	"golang.org/x/vuln/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

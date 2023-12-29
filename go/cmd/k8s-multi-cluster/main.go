@@ -3,10 +3,10 @@ package main
 import (
 	"log"
 
-	"github.com/olga-mir/k8s-multi-cluster/pkg/capi"
-	"github.com/olga-mir/k8s-multi-cluster/pkg/fluxcd"
-	"github.com/olga-mir/k8s-multi-cluster/pkg/k8sclient"
-	"github.com/olga-mir/k8s-multi-cluster/pkg/kind"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/capi"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/fluxcd"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/kind"
 )
 
 func main() {
