@@ -13,7 +13,32 @@ import (
 
 func CreateCluster(kubeconfigPath string) error {
 	clusterName := "tmp-mgmt"
-	cmd := exec.Command("kind", "create", "cluster", "--name", clusterName, "--kubeconfig", kubeconfigPath)
+	// Create a temporary file for the Kind configuration
+	kindConfig, err := os.CreateTemp("", "kind-bootstrap-*.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file for kind config: %w", err)
+	}
+	defer os.Remove(kindConfig.Name())
+
+	// Write the Kind configuration to the temp file
+	kindConfigContent := `
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+`
+	if _, err := kindConfig.WriteString(kindConfigContent); err != nil {
+		return fmt.Errorf("failed to write kind config: %w", err)
+	}
+
+	// Ensure the file is written before using it
+	if err := kindConfig.Sync(); err != nil {
+		return fmt.Errorf("failed to sync kind config file: %w", err)
+	}
+
+	// Run the Kind command with the config file
+	cmd := exec.Command("kind", "create", "cluster", "--name", clusterName, "--config", kindConfig.Name(), "--kubeconfig", kubeconfigPath)
 
 	// Stream the output to os.Stdout and os.Stderr
 	cmd.Stdout = os.Stdout
