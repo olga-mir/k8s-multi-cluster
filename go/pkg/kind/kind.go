@@ -7,7 +7,8 @@ import (
 )
 
 // CreateCluster creates a kind cluster and returns the kubeconfig as a string
-func CreateCluster(clusterName, kubeconfigPath string) (string, error) {
+func CreateCluster(kubeconfigPath string) (string, error) {
+	clusterName := "tmp-mgmt"
 	cmd := exec.Command("kind", "create", "cluster", "--name", clusterName, "--kubeconfig", kubeconfigPath)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -17,7 +18,7 @@ func CreateCluster(clusterName, kubeconfigPath string) (string, error) {
 	}
 
 	// Fetch and return the kubeconfig content
-	kubeconfig, err := exec.Command("kind", "get", "kubeconfig", "--name", clusterName).Output()
+	kubeconfig, err := exec.Command("kind", "get", "kubeconfig", "--name", "tmp-mgmt").Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to get kind cluster kubeconfig: %w", err)
 	}

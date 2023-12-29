@@ -13,38 +13,22 @@ type ClusterClient struct {
 	Config    *rest.Config
 }
 
-type KubernetesClients struct {
-	TempManagementCluster *ClusterClient            // Temporary management cluster (kind)
-	PermManagementCluster *ClusterClient            // Permanent management cluster
-	WorkloadClusters      map[string]*ClusterClient // Map of workload clusters
-}
-
-// GetKubernetesClients creates KubernetesClients struct with clients for each workload cluster.
-func GetKubernetesClients(kubeconfigPath string, workloadClusterContexts []string) (*KubernetesClients, error) {
-	// Load the kubeconfig file
+func GetKubernetesClient(kubeconfigPath string, context string) (*ClusterClient, error) {
 	config, err := clientcmd.LoadFromFile(kubeconfigPath)
 	if err != nil {
 		return nil, err
 	}
 
-	clients := &KubernetesClients{
-		WorkloadClusters: make(map[string]*ClusterClient),
+	clientConfig := clientcmd.NewNonInteractiveClientConfig(*config, context, &clientcmd.ConfigOverrides{}, nil)
+	restConfig, err := clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
 	}
 
-	for _, context := range workloadClusterContexts {
-		clientConfig := clientcmd.NewNonInteractiveClientConfig(*config, context, &clientcmd.ConfigOverrides{}, nil)
-		restConfig, err := clientConfig.ClientConfig()
-		if err != nil {
-			return nil, err
-		}
-
-		clientset, err := kubernetes.NewForConfig(restConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		clients.WorkloadClusters[context] = &ClusterClient{Clientset: clientset, Config: restConfig}
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
 	}
 
-	return clients, nil
+	return &ClusterClient{Clientset: clientset, Config: restConfig}, nil
 }

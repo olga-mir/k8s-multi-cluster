@@ -3,7 +3,7 @@
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # User must explicitely provide their kubeconfig and accept that it can be changed by the script
-# If it's not provided a new kuebconfig file will be generated in the repo root and previous one will be delete
+# If it's not provided a new kubeconfig file will be generated in the repo root and previous one will be delete
 # In this case user must configure kubectl to work with this file
 KUBECONFIG=${K8S_MULTI_KUBECONFIG}
 
