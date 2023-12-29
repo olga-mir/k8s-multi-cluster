@@ -31,7 +31,7 @@ func main() {
 
 	// Create a kind cluster and get its kubeconfig
 	log.Printf("Create `kind` cluster")
-	_, err := kind.CreateCluster(kubeconfigPath)
+	err := kind.CreateCluster(kubeconfigPath)
 	if err != nil {
 		log.Fatalf("Error creating kind cluster: %v", err)
 	}
