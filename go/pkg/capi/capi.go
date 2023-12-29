@@ -15,12 +15,16 @@ func InitClusterAPI(config *rest.Config, kubeconfigPath string) error {
 	if capiVersion == "" {
 		return fmt.Errorf("CAPI_VERSION environment variable is not set")
 	}
+	capaVersion := os.Getenv("CAPA_VERSION")
+	if capiVersion == "" {
+		return fmt.Errorf("CAPA_VERSION environment variable is not set")
+	}
 
 	// Correct providers based on the CAPI version
 	coreProvider := fmt.Sprintf("cluster-api:%s", capiVersion)
 	bootstrapProvider := fmt.Sprintf("kubeadm:%s", capiVersion)
 	controlPlaneProvider := fmt.Sprintf("kubeadm:%s", capiVersion)
-	infraProvider := fmt.Sprintf("aws:%s", capiVersion)
+	infraProvider := fmt.Sprintf("aws:%s", capaVersion)
 
 	// Create a clusterctl client
 	// Get the current context name from the rest.Config
@@ -51,7 +55,8 @@ func InitClusterAPI(config *rest.Config, kubeconfigPath string) error {
 	return nil
 }
 
-// TODO - move to utils
+// TODO - move to utils. Also this is not correct in general. The correct context is "embedded" in rest.Config
+// not necessarily in kubeconfig current context.
 func getCurrentContextName(config *rest.Config, kubeconfigPath string) (string, error) {
 	kubeconfig, err := clientcmd.LoadFromFile(kubeconfigPath)
 	if err != nil {

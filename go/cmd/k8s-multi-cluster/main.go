@@ -11,6 +11,8 @@ import (
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/fluxcd"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/kind"
+	logger "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 type KubernetesClients struct {
@@ -21,6 +23,7 @@ type KubernetesClients struct {
 
 // GetKubernetesClients creates KubernetesClients struct with clients for each workload cluster.
 func main() {
+	logger.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	const kindContext = "kind-tmp-mgmt" // TODO
 
