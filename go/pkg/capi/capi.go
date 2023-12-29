@@ -1,36 +1,34 @@
 package capi
 
 import (
+	"context"
 	"fmt"
 	"os"
 
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client"
 )
 
-func InitClusterAPI(k8sClient *kubernetes.Clientset) error {
+func InitClusterAPI(config *rest.Config) error {
 	capiVersion := os.Getenv("CAPI_VERSION")
 	if capiVersion == "" {
 		return fmt.Errorf("CAPI_VERSION environment variable is not set")
 	}
-
+	j
 	coreProvider := fmt.Sprintf("cluster-api:%s", capiVersion)
 	bootstrapProvider := fmt.Sprintf("kubeadm:%s", capiVersion)
 	controlPlaneProvider := fmt.Sprintf("kubeadm:%s", capiVersion)
 	infraProvider := fmt.Sprintf("aws:%s", capiVersion)
 
-	// Extract the REST config from the Kubernetes client
-	restConfig := k8sClient.RESTConfig()
-
 	// Create a clusterctl client
-	c, err := client.New("")
+	c, err := client.New(context.TODO(), "path/to/kubeconfig")
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating clusterctl client: %w", err)
 	}
 
-	// Define the InitOptions
+	// Define the InitOption
 	initOptions := client.InitOptions{
-		Kubeconfig:              client.Kubeconfig{Path: restConfig.Host, Context: restConfig.Context},
+		Kubeconfig:              client.Kubeconfig{},
 		CoreProvider:            coreProvider,
 		BootstrapProviders:      []string{bootstrapProvider},
 		ControlPlaneProviders:   []string{controlPlaneProvider},
@@ -38,7 +36,7 @@ func InitClusterAPI(k8sClient *kubernetes.Clientset) error {
 	}
 
 	// Perform the init operation
-	if _, err := c.Init(initOptions); err != nil {
+	if _, err := c.Init(context.TODO(), initOptions); err != nil {
 		return err
 	}
 
