@@ -2,10 +2,13 @@ package kind
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func CreateCluster(kubeconfigPath string) error {
@@ -29,8 +32,8 @@ func CreateCluster(kubeconfigPath string) error {
 }
 
 func waitForClusterReady(kubeconfigPath string) error {
-	timeout := time.After(5 * time.Minute)
-	ticker := time.NewTicker(10 * time.Second)
+	timeout := time.After(3 * time.Minute)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -38,7 +41,7 @@ func waitForClusterReady(kubeconfigPath string) error {
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for kind cluster to be ready")
 		case <-ticker.C:
-			if isClusterReady(kubeconfigPath) {
+			if isClusterReady(kubeconfigPath, "kind-tmp-mgmt") { // TODO
 				fmt.Println("Kind cluster is ready")
 				return nil
 			}
@@ -46,7 +49,20 @@ func waitForClusterReady(kubeconfigPath string) error {
 	}
 }
 
-func isClusterReady(kubeconfigPath string) bool {
+func isClusterReady(kubeconfigPath, contextName string) bool {
+	// Load the kubeconfig file
+	config, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		log.Printf("failed to load kubeconfig file: %v\n", err)
+		return false
+	}
+
+	// Check if the context exists in the kubeconfig
+	if _, exists := config.Contexts[contextName]; !exists {
+		log.Printf("context '%s' not found in kubeconfig\n", contextName)
+		return false
+	}
+
 	cmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "get", "nodes", "-o", "jsonpath='{.items[*].status.conditions[?(@.type==\"Ready\")].status}'")
 	out, err := cmd.Output()
 	if err != nil {

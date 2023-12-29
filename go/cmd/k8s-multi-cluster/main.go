@@ -22,7 +22,7 @@ type KubernetesClients struct {
 // GetKubernetesClients creates KubernetesClients struct with clients for each workload cluster.
 func main() {
 
-	const kindContext = "kind-kind"
+	const kindContext = "kind-tmp-mgmt" // TODO
 
 	kubeconfigPath := os.Getenv("K8S_MULTI_KUBECONFIG")
 	if kubeconfigPath == "" {
