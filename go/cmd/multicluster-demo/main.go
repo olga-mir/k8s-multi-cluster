@@ -1,18 +1,13 @@
 package main
 
 import (
-	"bytes"
-	"log"
-	"os"
-	"os/exec"
-	"strings"
+	"multicluster-demo/pkg/builder"
+	"multicluster-demo/pkg/config"
+	"multicluster-demo/pkg/runner"
 
-	"github.com/olga-mir/k8s-multi-cluster/go/pkg/capi"
-	"github.com/olga-mir/k8s-multi-cluster/go/pkg/fluxcd"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/config"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
-	"github.com/olga-mir/k8s-multi-cluster/go/pkg/kind"
-	logger "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"github.com/spf13/cobra"
 )
 
 type KubernetesClients struct {
@@ -23,61 +18,78 @@ type KubernetesClients struct {
 
 // GetKubernetesClients creates KubernetesClients struct with clients for each workload cluster.
 func main() {
-	logger.SetLogger(zap.New(zap.UseDevMode(true)))
+	var rootCmd = &cobra.Command{Use: "multicluster-demo"}
 
-	const kindContext = "kind-tmp-mgmt" // TODO
+	var cfgFile string
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file")
 
-	kubeconfigPath := os.Getenv("K8S_MULTI_KUBECONFIG")
-	if kubeconfigPath == "" {
-		log.Fatalf("K8S_MULTI_KUBECONFIG environment variable is not set")
+	var buildCmd = &cobra.Command{
+		Use:   "build",
+		Short: "Build all clusters",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.LoadConfig(cfgFile)
+			if err != nil {
+				return err
+			}
+			return builder.BuildClusters(cfg)
+		},
 	}
 
-	// Create a kind cluster and get its kubeconfig
-	log.Printf("Create `kind` cluster")
-	err := kind.CreateCluster(kubeconfigPath)
-	if err != nil {
-		log.Fatalf("Error creating kind cluster: %v", err)
+	var runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "Run scenarios",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.LoadConfig(cfgFile)
+			if err != nil {
+				return err
+			}
+			return runner.RunScenarios(cfg)
+		},
 	}
 
-	kindConfig, err := k8sclient.GetKubernetesClient(kubeconfigPath, kindContext)
-	if err != nil {
-		log.Fatalf("Failed to create Kubernetes client for kind cluster: %v", err)
-	}
+	rootCmd.AddCommand(buildCmd, runCmd)
+	rootCmd.Execute()
 
-	kubeClients := &KubernetesClients{
-		TempManagementCluster: kindConfig,
-		PermManagementCluster: nil,                                       // Initialize to nil to indicate that the permanent cluster has not been created yet.
-		WorkloadClusters:      make(map[string]*k8sclient.ClusterClient), // Initialize the map to an empty map
-	}
+	/*
+		logger.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	if err := capi.InitClusterAPI(kubeClients.TempManagementCluster.Config, kubeconfigPath); err != nil {
-		log.Fatalf("Failed to initialize Cluster API: %v", err)
-	}
+		const kindContext = "kind-tmp-mgmt" // TODO
 
-	// Install FluxCD on the kind cluster
-	if err := fluxcd.InstallFluxCD(kubeClients.TempManagementCluster.Config, kubeClients.TempManagementCluster.Clientset); err != nil {
-		log.Fatalf("Error installing FluxCD: %v", err)
-	}
+		kubeconfigPath := os.Getenv("K8S_MULTI_KUBECONFIG")
+		if kubeconfigPath == "" {
+			log.Fatalf("K8S_MULTI_KUBECONFIG environment variable is not set")
+		}
 
-	// Pivot to the permanent management cluster
-	// if err := capi.PivotCluster("path/to/temp/kubeconfig", "path/to/permanent/kubeconfig"); err != nil {
-	//	log.Fatalf("Error pivoting to permanent cluster: %v", err)
-	//}
-}
+		// Create a kind cluster and get its kubeconfig
+		log.Printf("Create `kind` cluster")
+		err := kind.CreateCluster(kubeconfigPath)
+		if err != nil {
+			log.Fatalf("Error creating kind cluster: %v", err)
+		}
 
-// TODO - move this away
-func utilsRepoRoot() string {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+		kindConfig, err := k8sclient.GetKubernetesClient(kubeconfigPath, kindContext)
+		if err != nil {
+			log.Fatalf("Failed to create Kubernetes client for kind cluster: %v", err)
+		}
 
-	var out bytes.Buffer
-	cmd.Stdout = &out
+		kubeClients := &KubernetesClients{
+			TempManagementCluster: kindConfig,
+			PermManagementCluster: nil,                                       // Initialize to nil to indicate that the permanent cluster has not been created yet.
+			WorkloadClusters:      make(map[string]*k8sclient.ClusterClient), // Initialize the map to an empty map
+		}
 
-	err := cmd.Run()
-	if err != nil {
-		log.Fatalf("Failed to execute command: %v", err)
-	}
+		if err := capi.InitClusterAPI(kubeClients.TempManagementCluster.Config, kubeconfigPath); err != nil {
+			log.Fatalf("Failed to initialize Cluster API: %v", err)
+		}
 
-	repoRoot := strings.TrimSpace(out.String())
+		// Install FluxCD on the kind cluster
+		if err := fluxcd.InstallFluxCD(kubeClients.TempManagementCluster.Config, kubeClients.TempManagementCluster.Clientset); err != nil {
+			log.Fatalf("Error installing FluxCD: %v", err)
+		}
 
-	return repoRoot
+		// Pivot to the permanent management cluster
+		// if err := capi.PivotCluster("path/to/temp/kubeconfig", "path/to/permanent/kubeconfig"); err != nil {
+		//	log.Fatalf("Error pivoting to permanent cluster: %v", err)
+		//}
+	*/
 }
