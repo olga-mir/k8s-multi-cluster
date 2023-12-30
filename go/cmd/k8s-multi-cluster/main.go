@@ -55,14 +55,7 @@ func main() {
 	}
 
 	// Install FluxCD on the kind cluster
-
-	fluxcdVersion := os.Getenv("FLUXCD_VERSION")
-	if fluxcdVersion == "" {
-		log.Fatalf("FLUXCD_VERSION environment variable is not set")
-	}
-
-	path := utilsRepoRoot() + "/k8s-platform/flux/" + fluxcdVersion + "/gotk-components.yaml"
-	if err := fluxcd.InstallFluxCD(kubeClients.TempManagementCluster.Config, path); err != nil {
+	if err := fluxcd.InstallFluxCD(kubeClients.TempManagementCluster.Config, kubeClients.TempManagementCluster.Clientset); err != nil {
 		log.Fatalf("Error installing FluxCD: %v", err)
 	}
 

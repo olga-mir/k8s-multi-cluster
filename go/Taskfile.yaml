@@ -1,0 +1,18 @@
+version: '3'
+
+tasks:
+  build:
+    cmds:
+      - go build -v ./cmd/k8s-multi-cluster
+    desc: Build the multicluster-demo application
+
+  run:
+    cmds:
+      - go run ./cmd/k8s-multi-cluster
+    desc: Run the multicluster-demo application
+
+  test:
+    cmds:
+      - go test -v ./pkg/...
+    desc: Run all tests in the pkg directory
+

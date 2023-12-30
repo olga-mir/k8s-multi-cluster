@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/utils"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client"
 )
 
@@ -28,7 +28,7 @@ func InitClusterAPI(config *rest.Config, kubeconfigPath string) error {
 
 	// Create a clusterctl client
 	// Get the current context name from the rest.Config
-	contextName, err := getCurrentContextName(config, kubeconfigPath)
+	contextName, err := utils.GetCurrentContextName(config, kubeconfigPath)
 	if err != nil {
 		return fmt.Errorf("error getting current context name: %w", err)
 	}
@@ -53,20 +53,4 @@ func InitClusterAPI(config *rest.Config, kubeconfigPath string) error {
 	}
 
 	return nil
-}
-
-// TODO - move to utils. Also this is not correct in general. The correct context is "embedded" in rest.Config
-// not necessarily in kubeconfig current context.
-func getCurrentContextName(config *rest.Config, kubeconfigPath string) (string, error) {
-	kubeconfig, err := clientcmd.LoadFromFile(kubeconfigPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to load kubeconfig file: %w", err)
-	}
-
-	currentContext := kubeconfig.CurrentContext
-	if currentContext == "" {
-		return "", fmt.Errorf("current context is not set in kubeconfig")
-	}
-
-	return currentContext, nil
 }
