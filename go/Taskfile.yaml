@@ -3,12 +3,12 @@ version: '3'
 tasks:
   build:
     cmds:
-      - go build -v ./cmd/k8s-multi-cluster
+      - go build -v ./cmd/multicluster-demo
     desc: Build the multicluster-demo application
 
   run:
     cmds:
-      - go run ./cmd/k8s-multi-cluster
+      - go run ./cmd/multicluster-demo
     desc: Run the multicluster-demo application
 
   test:

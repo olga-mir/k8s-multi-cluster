@@ -49,7 +49,7 @@ func InstallFluxCD(restConfig *rest.Config, client *kubernetes.Clientset) error 
 		return fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	manifestPath := utils.RepoRoot() + "/k8s-platform/flux/" + fluxcdVersion + "/gotk-components.yaml"
+	manifestPath := utils.RepoRoot() + "/k8s-platform/flux/" + "v" + fluxcdVersion
 	files, err := os.ReadDir(manifestPath)
 	if err != nil {
 		return fmt.Errorf("failed to read manifest directory: %w", err)
