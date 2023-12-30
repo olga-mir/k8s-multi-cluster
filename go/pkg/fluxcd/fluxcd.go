@@ -5,19 +5,21 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"path/filepath"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -50,28 +52,20 @@ func InstallFluxCD(restConfig *rest.Config, client *kubernetes.Clientset) error 
 	}
 
 	manifestPath := utils.RepoRoot() + "/k8s-platform/flux/" + "v" + fluxcdVersion
-	files, err := os.ReadDir(manifestPath)
-	if err != nil {
-		return fmt.Errorf("failed to read manifest directory: %w", err)
+
+	// Apply gotk-components.yaml first
+	if err := applyManifest(dynamicClient, filepath.Join(manifestPath, "gotk-components.yaml")); err != nil {
+		return err
 	}
 
-	for _, file := range files {
-		yamlData, err := os.ReadFile(filepath.Join(manifestPath, file.Name()))
-		if err != nil {
-			return fmt.Errorf("failed to read %s: %w", file.Name(), err)
-		}
+	// Wait for CRDs to be established
+	if err := waitForCRDs(dynamicClient, []string{"kustomizations.kustomize.toolkit.fluxcd.io", "gitrepositories.source.toolkit.fluxcd.io"}); err != nil {
+		return err
+	}
 
-		decUnstructured := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-		obj := &unstructured.Unstructured{}
-		_, _, err = decUnstructured.Decode(yamlData, nil, obj)
-		if err != nil {
-			return fmt.Errorf("failed to decode %s: %w", file.Name(), err)
-		}
-
-		_, err = dynamicClient.Resource(obj.GroupVersionKind().GroupVersion().WithResource(obj.GetKind())).Namespace(obj.GetNamespace()).Create(context.TODO(), obj, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("failed to apply %s: %w", file.Name(), err)
-		}
+	// Then apply kustomization.yaml
+	if err := applyManifest(dynamicClient, filepath.Join(manifestPath, "kustomization.yaml")); err != nil {
+		return err
 	}
 
 	createFluxSystemSecret(client, fluxKeyPath, fluxKeyPath+".pub", githubKnownHosts)
@@ -180,4 +174,60 @@ func createFluxSystemSecret(clientset *kubernetes.Clientset, keyPath, keyPubPath
 	}
 
 	log.Println("Secret created successfully")
+}
+
+func applyManifest(dynamicClient dynamic.Interface, manifestFile string) error {
+	yamlData, err := os.ReadFile(manifestFile)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", manifestFile, err)
+	}
+
+	decUnstructured := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	obj := &unstructured.Unstructured{}
+	_, _, err = decUnstructured.Decode(yamlData, nil, obj)
+	if err != nil {
+		return fmt.Errorf("failed to decode %s: %w", manifestFile, err)
+	}
+
+	_, err = dynamicClient.Resource(obj.GroupVersionKind().GroupVersion().WithResource(obj.GetKind())).Namespace(obj.GetNamespace()).Create(context.TODO(), obj, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to apply %s: %w", manifestFile, err)
+	}
+	return nil
+}
+
+func waitForCRDs(dynamicClient dynamic.Interface, crds []string) error {
+	for _, crd := range crds {
+		if err := waitUntilCRDEstablished(dynamicClient, crd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func waitUntilCRDEstablished(dynamicClient dynamic.Interface, crdName string) error {
+	w, err := dynamicClient.Resource(schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}).Watch(context.TODO(), metav1.ListOptions{
+		FieldSelector: "metadata.name=" + crdName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to watch CRD %s: %w", crdName, err)
+	}
+	defer w.Stop()
+
+	timeout := time.After(5 * time.Minute)
+	for {
+		select {
+		case event := <-w.ResultChan():
+			if event.Type == watch.Modified {
+				crd := event.Object.(*apiextensionsv1.CustomResourceDefinition)
+				for _, cond := range crd.Status.Conditions {
+					if cond.Type == apiextensionsv1.Established && cond.Status == apiextensionsv1.ConditionTrue {
+						return nil
+					}
+				}
+			}
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for CRD %s to be established", crdName)
+		}
+	}
 }
