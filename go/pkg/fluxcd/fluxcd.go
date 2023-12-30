@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	// kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1beta1"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
@@ -50,8 +49,6 @@ func InstallFluxCD(restConfig *rest.Config, client *kubernetes.Clientset) error 
 		return fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	createFluxSystemSecret(client, fluxKeyPath, fluxKeyPath+".pub", githubKnownHosts)
-
 	manifestPath := utils.RepoRoot() + "/k8s-platform/flux/" + fluxcdVersion + "/gotk-components.yaml"
 	files, err := os.ReadDir(manifestPath)
 	if err != nil {
@@ -77,6 +74,8 @@ func InstallFluxCD(restConfig *rest.Config, client *kubernetes.Clientset) error 
 		}
 	}
 
+	createFluxSystemSecret(client, fluxKeyPath, fluxKeyPath+".pub", githubKnownHosts)
+
 	// TODO - move this out of "install" to another function
 	repoUrl := "ssh://git@github.com/olga-mir/k8s-multi-cluster"
 	namespace := "flux-system"
@@ -92,18 +91,18 @@ func InstallFluxCD(restConfig *rest.Config, client *kubernetes.Clientset) error 
 		return fmt.Errorf("error creating client: %s", err)
 	}
 
-	if err := CreateGitRepository(kubeClient, repoUrl, namespace); err != nil {
+	if err := createGitRepository(kubeClient, repoUrl, namespace); err != nil {
 		log.Fatalf("Error creating GitRepository: %s", err)
 	}
 
-	if err := CreateKustomization(kubeClient, namespace); err != nil {
+	if err := createKustomization(kubeClient, namespace); err != nil {
 		log.Fatalf("Error creating Kustomization: %s", err)
 	}
 
 	return nil
 }
 
-func CreateGitRepository(kubeClient runtimeClient.Client, repoUrl, namespace string) error {
+func createGitRepository(kubeClient runtimeClient.Client, repoUrl, namespace string) error {
 	gitRepo := &sourcev1.GitRepository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "flux-system",
@@ -127,7 +126,7 @@ func CreateGitRepository(kubeClient runtimeClient.Client, repoUrl, namespace str
 	return nil
 }
 
-func CreateKustomization(kubeClient runtimeClient.Client, namespace string) error {
+func createKustomization(kubeClient runtimeClient.Client, namespace string) error {
 	kustomization := &kustomizev1.Kustomization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "flux-system",
