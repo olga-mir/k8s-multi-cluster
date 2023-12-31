@@ -1,0 +1,38 @@
+clusters:
+  - name: "cluster-mgmt"
+    provider: "aws"
+    kubernetesVersion: "1.28.5"
+    podCIDR: "192.168.0.0/20"
+    managementCluster: ""
+    flux:
+      keyPath: "$HOME/.ssh/flux-github-key-2"
+      version: "2.2.2"
+    cni:
+      name: "cilium"
+      config: "TODO"
+    aws:
+      sshKeyName: "aws"
+      region: "ap-southeast-2"
+
+  - name: "cluster-01"
+    provider: "aws"
+    kubernetesVersion: "1.29.0"
+    podCIDR: "192.168.0.0/20"
+    managementCluster: "cluster-mgmt"
+    flux:
+      keyPath: "$HOME/.ssh/flux-github-key-2"
+      version: "2.2.2"
+    cni:
+      name: "cilium"
+      config: "TODO"
+    aws:
+      sshKeyName: "aws-wl1"
+      region: "us-west-2"
+
+github:
+  knownHosts: "github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg="
+  user: "olga-mir"
+  branch: "develop"
+  repo: "k8s-multi-cluster"
+
+

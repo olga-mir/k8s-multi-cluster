@@ -34,7 +34,7 @@ func InitClusterAPI(config *rest.Config, kubeconfigPath string) error {
 	}
 
 	// Initialize clusterctl client with the existing kubeconfig and context
-	c, err := client.New(context.TODO(), "") // kubeconfigPath, client.InjectConfig(config))
+	c, err := client.New(context.TODO(), "")
 	if err != nil {
 		return fmt.Errorf("error creating clusterctl client: %w", err)
 	}

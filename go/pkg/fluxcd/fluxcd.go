@@ -60,7 +60,7 @@ func (f *FluxCDInstaller) InstallFluxCD() error {
 
 	// Wait for CRDs to be established
 	fluxCRDs := []string{"kustomizations.kustomize.toolkit.fluxcd.io", "gitrepositories.source.toolkit.fluxcd.io"}
-	f.log.Info("Waiting for Flux CRDs %v", fluxCRDs)
+	f.log.Info("Waiting for Flux CRDs to become established")
 	if err := utils.WaitForCRDs(dynamicClient, fluxCRDs); err != nil {
 		return err
 	}
