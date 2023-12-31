@@ -38,6 +38,8 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 		return fmt.Errorf("error creating kind cluster: %v", err)
 	}
 
+	kindClusterConfig := config.KindClusterConfig("tmp-mgmt")
+
 	kindConfig, err := k8sclient.GetKubernetesClient(kubeconfigPath, kindContext)
 	if err != nil {
 		return fmt.Errorf("failed to create Kubernetes client for kind cluster: %v", err)
@@ -58,10 +60,7 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 
 	// Install FluxCD on the kind cluster
 	log.Info("Installing FluxCD on `kind` cluster")
-	// TODO - decide if context is relvant in this app. If so, logger can be passed as part of the context.
-	// ctx := logr.NewContext(context.Background(), log)
-	// log := logr.FromContext(ctx)
-	fluxInstaller := fluxcd.NewFluxCDInstaller(log, cfg.Flux, cfg.GitHub, kubeClients.TempManagementCluster.Config, kubeClients.TempManagementCluster.Clientset)
+	fluxInstaller := fluxcd.NewFluxCDInstaller(log, kindClusterConfig.Flux, kubeClients.TempManagementCluster.Config, kubeClients.TempManagementCluster.Clientset)
 	if err := fluxInstaller.InstallFluxCD(); err != nil {
 		return fmt.Errorf("error installing FluxCD: %v", err)
 	}

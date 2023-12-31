@@ -26,21 +26,19 @@ import (
 
 // FluxCDInstaller handles the installation of FluxCD
 type FluxCDInstaller struct {
-	log          logr.Logger
-	fluxConfig   appconfig.FluxConfig
-	gitHubConfig appconfig.GitHubConfig
-	k8sClient    *kubernetes.Clientset
-	restConfig   *rest.Config
+	log        logr.Logger
+	fluxConfig appconfig.FluxConfig
+	k8sClient  *kubernetes.Clientset
+	restConfig *rest.Config
 }
 
 // NewFluxCDInstaller creates a new FluxCDInstaller with the provided configurations
-func NewFluxCDInstaller(log logr.Logger, fluxConfig appconfig.FluxConfig, gitHubConfig appconfig.GitHubConfig, restConfig *rest.Config, client *kubernetes.Clientset) *FluxCDInstaller {
+func NewFluxCDInstaller(log logr.Logger, fluxConfig appconfig.FluxConfig, restConfig *rest.Config, client *kubernetes.Clientset) *FluxCDInstaller {
 	return &FluxCDInstaller{
-		log:          log,
-		fluxConfig:   fluxConfig,
-		gitHubConfig: gitHubConfig,
-		k8sClient:    client,
-		restConfig:   restConfig,
+		log:        log,
+		fluxConfig: fluxConfig,
+		k8sClient:  client,
+		restConfig: restConfig,
 	}
 }
 
@@ -61,7 +59,7 @@ func (f *FluxCDInstaller) InstallFluxCD() error {
 	// Wait for CRDs to be established
 	fluxCRDs := []string{"kustomizations.kustomize.toolkit.fluxcd.io", "gitrepositories.source.toolkit.fluxcd.io"}
 	f.log.Info("Waiting for Flux CRDs to become established")
-	if err := utils.WaitForCRDs(dynamicClient, fluxCRDs); err != nil {
+	if err := utils.WaitForCRDs(f.restConfig, fluxCRDs); err != nil {
 		return err
 	}
 
@@ -103,9 +101,9 @@ func (f *FluxCDInstaller) createGitRepository(kubeClient runtimeClient.Client) e
 		},
 		Spec: sourcev1.GitRepositorySpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
-			URL:      f.gitHubConfig.Repo,
+			URL:      f.fluxConfig.GitHub.Repo,
 			Reference: &sourcev1.GitRepositoryRef{
-				Branch: f.gitHubConfig.Branch,
+				Branch: f.fluxConfig.GitHub.Branch,
 			},
 			SecretRef: &meta.LocalObjectReference{
 				Name: "flux-system",
@@ -127,7 +125,7 @@ func (f *FluxCDInstaller) createKustomization(kubeClient runtimeClient.Client) e
 		},
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
-			Path:     "./clusters/cluster-mgmt",
+			Path:     "./clusters/cluster-mgmt", // TODO - defaults?
 			Prune:    true,
 			SourceRef: kustomizev1.CrossNamespaceSourceReference{
 				Kind: "GitRepository",
@@ -157,17 +155,17 @@ func (f *FluxCDInstaller) createFluxSystemSecret() {
 	}
 	secretData["identity.pub"] = keyPub
 
-	secretData["known_hosts"] = []byte(f.gitHubConfig.KnownHosts)
+	secretData["known_hosts"] = []byte(appconfig.GithubKnownHosts)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "flux-system",
-			Namespace: "flux-system",
+			Namespace: f.fluxConfig.Namespace,
 		},
 		Data: secretData,
 	}
 
-	_, err = f.k8sClient.CoreV1().Secrets("flux-system").Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err = f.k8sClient.CoreV1().Secrets(f.fluxConfig.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
 		log.Fatalf("Error creating secret: %s", err.Error())
 	}

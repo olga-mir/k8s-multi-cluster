@@ -5,15 +5,13 @@ import (
 )
 
 type Config struct {
-	GitHub   GitHubConfig
 	Clusters []ClusterConfig
 }
 
 type GitHubConfig struct {
-	KnownHosts string `mapstructure:"knownHosts"`
-	User       string `mapstructure:"user"`
-	Branch     string `mapstructure:"branch"`
-	Repo       string `mapstructure:"repo"`
+	User   string `mapstructure:"user"`
+	Branch string `mapstructure:"branch"`
+	Repo   string `mapstructure:"repo"`
 }
 
 type ClusterConfig struct {
@@ -28,8 +26,10 @@ type ClusterConfig struct {
 }
 
 type FluxConfig struct {
-	KeyPath string `mapstructure:"keyPath"`
-	Version string `mapstructure:"version"`
+	GitHub    GitHubConfig `mapstructure:"github"`
+	KeyPath   string       `mapstructure:"keyPath"`
+	Version   string       `mapstructure:"version"`
+	Namespace string       `mapstructure:"namespace"`
 }
 
 type CNIConfig struct {

@@ -12,11 +12,11 @@ import (
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -105,40 +105,39 @@ func getResourceName(kind string) string {
 	return strings.ToLower(kind) + "s"
 }
 
-func WaitForCRDs(dynamicClient dynamic.Interface, crds []string) error {
+func WaitForCRDs(config *rest.Config, crds []string) error {
+	apiExtClient, err := apiextensionsclientset.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("error creating API extensions client: %w", err)
+	}
 	for _, crd := range crds {
-		if err := waitUntilCRDEstablished(dynamicClient, crd); err != nil {
+		if err := waitUntilCRDEstablished(apiExtClient, crd); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func waitUntilCRDEstablished(dynamicClient dynamic.Interface, crdName string) error {
-	w, err := dynamicClient.Resource(schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}).Watch(context.TODO(), metav1.ListOptions{
-		FieldSelector: "metadata.name=" + crdName,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to watch CRD %s: %w", crdName, err)
-	}
-	defer w.Stop()
-
+func waitUntilCRDEstablished(clientSet apiextensionsclientset.Interface, crdName string) error {
 	timeout := time.After(5 * time.Minute)
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
-		case event := <-w.ResultChan():
-			log.Printf("In CHANNEL %s\n", event.Type)
-			if event.Type == watch.Modified {
-				crd := event.Object.(*apiextensionsv1.CustomResourceDefinition)
-				log.Println("In watch")
-				for _, cond := range crd.Status.Conditions {
-					if cond.Type == apiextensionsv1.Established && cond.Status == apiextensionsv1.ConditionTrue {
-						return nil
-					}
-				}
-			}
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for CRD %s to be established", crdName)
+		case <-ticker.C:
+			crd, err := clientSet.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdName, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("error getting CRD %s: %w", crdName, err)
+			}
+
+			for _, cond := range crd.Status.Conditions {
+				if cond.Type == apiextensionsv1.Established && cond.Status == apiextensionsv1.ConditionTrue {
+					return nil
+				}
+			}
 		}
 	}
 }
