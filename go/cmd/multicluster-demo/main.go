@@ -9,7 +9,8 @@ import (
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/runner"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	// "sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var cfgFile string
@@ -59,8 +60,6 @@ func main() {
 }
 
 func init() {
-	//logger.SetLogger(zap.New(zap.UseDevMode(true)))
-
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.myapp.yaml)")
@@ -69,16 +68,18 @@ func init() {
 }
 
 func initConfig() {
+	// Initialize the logger
+	log.SetLogger(zap.New(zap.UseDevMode(true)))
+
+	// Load the configuration file if specified
 	if cfgFile != "" {
-		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Search config in home directory with name ".myapp" (without extension).
 		viper.AddConfigPath("$HOME")
 		viper.SetConfigName(".myapp")
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
+	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())

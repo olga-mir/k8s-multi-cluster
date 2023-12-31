@@ -1,15 +1,23 @@
 version: '3'
 
 tasks:
-  build:
+  build-app:
     cmds:
       - go build -v ./cmd/multicluster-demo
     desc: Build the multicluster-demo application
+    generates:
+      - multicluster-demo
 
-  run:
+  build-project:
+    deps: [build-app]
     cmds:
-      - go run ./cmd/multicluster-demo
-    desc: Run the multicluster-demo application
+      - ./multicluster-demo build --config .
+    desc: Runs multicluster-demo `build` which builds clusters as defined in the config.yaml file
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    method: checksum
 
   test:
     cmds:

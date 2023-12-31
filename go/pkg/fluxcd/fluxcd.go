@@ -1,11 +1,14 @@
 package fluxcd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
@@ -20,10 +23,17 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+
+	// "k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	//  "k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	// "k8s.io/apimachinery/pkg/watch"
+
+	// "sigs.k8s.io/yaml"
 
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/utils"
 )
@@ -54,11 +64,13 @@ func InstallFluxCD(restConfig *rest.Config, client *kubernetes.Clientset) error 
 	manifestPath := utils.RepoRoot() + "/k8s-platform/flux/" + "v" + fluxcdVersion
 
 	// Apply gotk-components.yaml first
+	log.Println("Applying gotk-components")
 	if err := applyManifest(dynamicClient, filepath.Join(manifestPath, "gotk-components.yaml")); err != nil {
 		return err
 	}
 
 	// Wait for CRDs to be established
+	log.Println("waiting for CRDs")
 	if err := waitForCRDs(dynamicClient, []string{"kustomizations.kustomize.toolkit.fluxcd.io", "gitrepositories.source.toolkit.fluxcd.io"}); err != nil {
 		return err
 	}
@@ -177,23 +189,55 @@ func createFluxSystemSecret(clientset *kubernetes.Clientset, keyPath, keyPubPath
 }
 
 func applyManifest(dynamicClient dynamic.Interface, manifestFile string) error {
-	yamlData, err := os.ReadFile(manifestFile)
+	fileData, err := os.ReadFile(manifestFile)
 	if err != nil {
 		return fmt.Errorf("failed to read %s: %w", manifestFile, err)
 	}
 
-	decUnstructured := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
-	obj := &unstructured.Unstructured{}
-	_, _, err = decUnstructured.Decode(yamlData, nil, obj)
-	if err != nil {
-		return fmt.Errorf("failed to decode %s: %w", manifestFile, err)
+	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(fileData), 4096)
+	for {
+		var obj unstructured.Unstructured
+		if err := decoder.Decode(&obj); err != nil {
+			if err == io.EOF {
+				break // End of file, exit the loop
+			}
+			return fmt.Errorf("failed to decode YAML document: %w", err)
+		}
+
+		if obj.Object == nil {
+			continue // Skip empty objects
+		}
+
+		gvr := schema.GroupVersionResource{
+			Group:    obj.GetObjectKind().GroupVersionKind().Group,
+			Version:  obj.GetObjectKind().GroupVersionKind().Version,
+			Resource: getResourceName(obj.GetKind()),
+		}
+
+		_, err := dynamicClient.Resource(gvr).Namespace(obj.GetNamespace()).Create(context.TODO(), &obj, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to apply resource (Kind: %s, Name: %s): %w", obj.GetKind(), obj.GetName(), err)
+		}
 	}
 
-	_, err = dynamicClient.Resource(obj.GroupVersionKind().GroupVersion().WithResource(obj.GetKind())).Namespace(obj.GetNamespace()).Create(context.TODO(), obj, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to apply %s: %w", manifestFile, err)
-	}
 	return nil
+}
+
+func getResourceName(kind string) string {
+	// Handle special cases
+	specialCases := map[string]string{
+		"Endpoints":                "endpoints",
+		"PodSecurityPolicy":        "podsecuritypolicies",
+		"NetworkPolicy":            "networkpolicies",
+		"CustomResourceDefinition": "customresourcedefinitions",
+	}
+
+	if resourceName, ok := specialCases[kind]; ok {
+		return resourceName
+	}
+
+	// Default case: add an 's' to the kind
+	return strings.ToLower(kind) + "s"
 }
 
 func waitForCRDs(dynamicClient dynamic.Interface, crds []string) error {
@@ -218,8 +262,10 @@ func waitUntilCRDEstablished(dynamicClient dynamic.Interface, crdName string) er
 	for {
 		select {
 		case event := <-w.ResultChan():
+			log.Printf("In CHANNEL %s\n", event.Type)
 			if event.Type == watch.Modified {
 				crd := event.Object.(*apiextensionsv1.CustomResourceDefinition)
+				log.Println("In watch")
 				for _, cond := range crd.Status.Conditions {
 					if cond.Type == apiextensionsv1.Established && cond.Status == apiextensionsv1.ConditionTrue {
 						return nil
