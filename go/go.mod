@@ -8,6 +8,7 @@ require (
 	github.com/fluxcd/kustomize-controller/api v1.2.1
 	github.com/fluxcd/pkg/apis/meta v1.2.0
 	github.com/fluxcd/source-controller/api v1.2.3
+	github.com/go-logr/logr v1.3.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.17.0
 	k8s.io/api v0.29.0
@@ -40,7 +41,6 @@ require (
 	github.com/fluxcd/pkg/apis/acl v0.1.0 // indirect
 	github.com/fluxcd/pkg/apis/kustomize v1.2.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
-	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/zapr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect

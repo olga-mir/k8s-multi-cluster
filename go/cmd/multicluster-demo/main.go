@@ -13,6 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+var logger = log.Log
+
 var cfgFile string
 
 // Following cmd variables could be defined inside main function, but setting them as global variables have some advantages:
@@ -35,7 +37,7 @@ var buildCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return builder.BuildClusters(cfg)
+		return builder.BuildClusters(logger, cfg)
 	},
 }
 
@@ -47,7 +49,7 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return runner.RunScenarios(cfg)
+		return runner.RunScenarios(cfg) // TODO - logger dep injection
 	},
 }
 
@@ -60,6 +62,8 @@ func main() {
 }
 
 func init() {
+	// Initialize the logger
+	log.SetLogger(zap.New(zap.UseDevMode(true)))
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.myapp.yaml)")
@@ -68,8 +72,6 @@ func init() {
 }
 
 func initConfig() {
-	// Initialize the logger
-	log.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	// Load the configuration file if specified
 	if cfgFile != "" {

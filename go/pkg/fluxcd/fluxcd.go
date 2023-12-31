@@ -11,6 +11,7 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/pkg/apis/meta"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta1"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -19,56 +20,58 @@ import (
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	appconfig "github.com/olga-mir/k8s-multi-cluster/go/pkg/config"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/utils"
 )
 
-// InstallFluxCD applies the FluxCD manifests to the cluster
-func InstallFluxCD(restConfig *rest.Config, client *kubernetes.Clientset) error {
+// FluxCDInstaller handles the installation of FluxCD
+type FluxCDInstaller struct {
+	log          logr.Logger
+	fluxConfig   appconfig.FluxConfig
+	gitHubConfig appconfig.GitHubConfig
+	k8sClient    *kubernetes.Clientset
+	restConfig   *rest.Config
+}
 
-	fluxcdVersion := os.Getenv("FLUXCD_VERSION")
-	if fluxcdVersion == "" {
-		log.Fatalf("FLUXCD_VERSION environment variable is not set")
+// NewFluxCDInstaller creates a new FluxCDInstaller with the provided configurations
+func NewFluxCDInstaller(log logr.Logger, fluxConfig appconfig.FluxConfig, gitHubConfig appconfig.GitHubConfig, restConfig *rest.Config, client *kubernetes.Clientset) *FluxCDInstaller {
+	return &FluxCDInstaller{
+		log:          log,
+		fluxConfig:   fluxConfig,
+		gitHubConfig: gitHubConfig,
+		k8sClient:    client,
+		restConfig:   restConfig,
 	}
+}
 
-	fluxKeyPath := os.Getenv("FLUX_KEY_PATH")
-	if fluxcdVersion == "" {
-		log.Fatalf(" environment variable is not set")
-	}
-
-	githubKnownHosts := os.Getenv("GITHUB_KNOWN_HOSTS")
-	if fluxcdVersion == "" {
-		log.Fatalf("GITHUB_KNOWN_HOSTS environment variable is not set")
-	}
-
-	dynamicClient, err := dynamic.NewForConfig(restConfig)
+func (f *FluxCDInstaller) InstallFluxCD() error {
+	dynamicClient, err := dynamic.NewForConfig(f.restConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	manifestPath := utils.RepoRoot() + "/k8s-platform/flux/" + "v" + fluxcdVersion
+	manifestPath := utils.RepoRoot() + "/k8s-platform/flux/" + "v" + f.fluxConfig.Version
 
 	// Apply gotk-components.yaml first
-	log.Println("Applying gotk-components")
+	f.log.Info("Applying gotk-components")
 	if err := utils.ApplyManifestsFile(dynamicClient, filepath.Join(manifestPath, "gotk-components.yaml")); err != nil {
 		return err
 	}
 
 	// Wait for CRDs to be established
-	log.Println("waiting for CRDs")
-	if err := utils.WaitForCRDs(dynamicClient, []string{"kustomizations.kustomize.toolkit.fluxcd.io", "gitrepositories.source.toolkit.fluxcd.io"}); err != nil {
+	fluxCRDs := []string{"kustomizations.kustomize.toolkit.fluxcd.io", "gitrepositories.source.toolkit.fluxcd.io"}
+	f.log.Info("Waiting for Flux CRDs %v", fluxCRDs)
+	if err := utils.WaitForCRDs(dynamicClient, fluxCRDs); err != nil {
 		return err
 	}
 
 	// Then apply kustomization.yaml
+	f.log.Info("Applying kustomization")
 	if err := utils.ApplyManifestsFile(dynamicClient, filepath.Join(manifestPath, "kustomization.yaml")); err != nil {
 		return err
 	}
 
-	createFluxSystemSecret(client, fluxKeyPath, fluxKeyPath+".pub", githubKnownHosts)
-
-	// TODO - move this out of "install" to another function
-	repoUrl := "ssh://git@github.com/olga-mir/k8s-multi-cluster"
-	namespace := "flux-system"
+	f.createFluxSystemSecret()
 
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -81,28 +84,28 @@ func InstallFluxCD(restConfig *rest.Config, client *kubernetes.Clientset) error 
 		return fmt.Errorf("error creating client: %s", err)
 	}
 
-	if err := createGitRepository(kubeClient, repoUrl, namespace); err != nil {
+	if err := f.createGitRepository(kubeClient); err != nil {
 		log.Fatalf("Error creating GitRepository: %s", err)
 	}
 
-	if err := createKustomization(kubeClient, namespace); err != nil {
+	if err := f.createKustomization(kubeClient); err != nil {
 		log.Fatalf("Error creating Kustomization: %s", err)
 	}
 
 	return nil
 }
 
-func createGitRepository(kubeClient runtimeClient.Client, repoUrl, namespace string) error {
+func (f *FluxCDInstaller) createGitRepository(kubeClient runtimeClient.Client) error {
 	gitRepo := &sourcev1.GitRepository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "flux-system",
-			Namespace: namespace,
+			Namespace: f.fluxConfig.Namespace,
 		},
 		Spec: sourcev1.GitRepositorySpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
-			URL:      repoUrl,
+			URL:      f.gitHubConfig.Repo,
 			Reference: &sourcev1.GitRepositoryRef{
-				Branch: "develop",
+				Branch: f.gitHubConfig.Branch,
 			},
 			SecretRef: &meta.LocalObjectReference{
 				Name: "flux-system",
@@ -116,11 +119,11 @@ func createGitRepository(kubeClient runtimeClient.Client, repoUrl, namespace str
 	return nil
 }
 
-func createKustomization(kubeClient runtimeClient.Client, namespace string) error {
+func (f *FluxCDInstaller) createKustomization(kubeClient runtimeClient.Client) error {
 	kustomization := &kustomizev1.Kustomization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "flux-system",
-			Namespace: namespace,
+			Namespace: f.fluxConfig.Namespace,
 		},
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
@@ -139,22 +142,22 @@ func createKustomization(kubeClient runtimeClient.Client, namespace string) erro
 	return nil
 }
 
-func createFluxSystemSecret(clientset *kubernetes.Clientset, keyPath, keyPubPath, knownHosts string) {
+func (f *FluxCDInstaller) createFluxSystemSecret() {
 	secretData := make(map[string][]byte)
 
-	key, err := os.ReadFile(keyPath)
+	key, err := os.ReadFile(f.fluxConfig.KeyPath)
 	if err != nil {
 		log.Fatalf("Error reading key file: %s", err.Error())
 	}
 	secretData["identity"] = key
 
-	keyPub, err := os.ReadFile(keyPubPath)
+	keyPub, err := os.ReadFile(f.fluxConfig.KeyPath + ".pub")
 	if err != nil {
 		log.Fatalf("Error reading key pub file: %s", err.Error())
 	}
 	secretData["identity.pub"] = keyPub
 
-	secretData["known_hosts"] = []byte(knownHosts)
+	secretData["known_hosts"] = []byte(f.gitHubConfig.KnownHosts)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -164,7 +167,7 @@ func createFluxSystemSecret(clientset *kubernetes.Clientset, keyPath, keyPubPath
 		Data: secretData,
 	}
 
-	_, err = clientset.CoreV1().Secrets("flux-system").Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err = f.k8sClient.CoreV1().Secrets("flux-system").Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
 		log.Fatalf("Error creating secret: %s", err.Error())
 	}
