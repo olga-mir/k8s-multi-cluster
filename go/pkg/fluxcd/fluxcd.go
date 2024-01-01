@@ -63,12 +63,6 @@ func (f *FluxCDInstaller) InstallFluxCD() error {
 		return err
 	}
 
-	// Then apply kustomization.yaml
-	f.log.Info("Applying kustomization")
-	if err := utils.ApplyManifestsFile(dynamicClient, filepath.Join(manifestPath, "kustomization.yaml")); err != nil {
-		return err
-	}
-
 	f.createFluxSystemSecret()
 
 	cfg, err := config.GetConfig()
