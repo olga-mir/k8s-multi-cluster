@@ -13,13 +13,13 @@ import (
 )
 
 // KubernetesClients represents a collection of Kubernetes clients for different clusters.
-// ClusterClient contains REST Config and clientset. Clientset can't be easily used with
+// CluserAuthInfo contains REST Config and clientset. Clientset can't be easily used with
 // custom resources and clients used by Cluster API and FluxCD
 // TODO - review this sructure: maybe using only REST Config and building clientset dynamically when needed.
 type KubernetesClients struct {
-	TempManagementCluster *k8sclient.ClusterClient            // Temporary management cluster (kind)
-	PermManagementCluster *k8sclient.ClusterClient            // Permanent management cluster
-	WorkloadClusters      map[string]*k8sclient.ClusterClient // Map of workload clusters
+	TempManagementCluster *k8sclient.CluserAuthInfo            // Temporary management cluster (kind)
+	PermManagementCluster *k8sclient.CluserAuthInfo            // Permanent management cluster
+	WorkloadClusters      map[string]*k8sclient.CluserAuthInfo // Map of workload clusters
 }
 
 func BuildClusters(log logr.Logger, cfg *config.Config) error {
@@ -47,8 +47,8 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 
 	kubeClients := &KubernetesClients{
 		TempManagementCluster: kindConfig,
-		PermManagementCluster: nil,                                       // Initialize to nil to indicate that the permanent cluster has not been created yet.
-		WorkloadClusters:      make(map[string]*k8sclient.ClusterClient), // Initialize the map to an empty map
+		PermManagementCluster: nil,                                        // Initialize to nil to indicate that the permanent cluster has not been created yet.
+		WorkloadClusters:      make(map[string]*k8sclient.CluserAuthInfo), // Initialize the map to an empty map
 	}
 
 	// Install Cluster API on the kind cluster. kind is a temporary "CAPI management cluster" which will be used to provision
@@ -60,8 +60,8 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 
 	// Install FluxCD on the kind cluster
 	log.Info("Installing FluxCD on `kind` cluster")
-	fluxInstaller := fluxcd.NewFluxCDInstaller(log, kindClusterConfig.Flux, kubeClients.TempManagementCluster.Config, kubeClients.TempManagementCluster.Clientset)
-	if err := fluxInstaller.InstallFluxCD(); err != nil {
+	kindFluxInstaller := fluxcd.NewFluxCDInstaller(log, kindClusterConfig.Flux, kubeClients.TempManagementCluster.Config, kubeClients.TempManagementCluster.Clientset)
+	if err := kindFluxInstaller.InstallFluxCD(); err != nil {
 		return fmt.Errorf("error installing FluxCD: %v", err)
 	}
 

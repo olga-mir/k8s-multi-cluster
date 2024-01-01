@@ -6,14 +6,14 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// ClusterClient is a struct that contains a Kubernetes clientset and a Kubernetes config.
+// CluserAuthInfo is a struct that contains a Kubernetes clientset and a Kubernetes config.
 // in somecases we can't use clientset and have to pass REST Config, e.g. in InitClusterAPI
-type ClusterClient struct {
+type CluserAuthInfo struct {
 	Clientset *kubernetes.Clientset
 	Config    *rest.Config
 }
 
-func GetKubernetesClient(kubeconfigPath string, context string) (*ClusterClient, error) {
+func GetKubernetesClient(kubeconfigPath string, context string) (*CluserAuthInfo, error) {
 	config, err := clientcmd.LoadFromFile(kubeconfigPath)
 	if err != nil {
 		return nil, err
@@ -30,5 +30,5 @@ func GetKubernetesClient(kubeconfigPath string, context string) (*ClusterClient,
 		return nil, err
 	}
 
-	return &ClusterClient{Clientset: clientset, Config: restConfig}, nil
+	return &CluserAuthInfo{Clientset: clientset, Config: restConfig}, nil
 }

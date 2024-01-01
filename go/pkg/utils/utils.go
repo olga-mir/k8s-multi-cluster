@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,43 +25,28 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-type Utils struct {
-	log        logr.Logger
-	k8sClient  *kubernetes.Clientset
-	restConfig *rest.Config
-}
-
-// NewUtils creates a new Utils with the provided configurations
-func NewUtils(log logr.Logger, restConfig *rest.Config, client *kubernetes.Clientset) *Utils {
-	return &Utils{
-		log:        log,
-		k8sClient:  client,
-		restConfig: restConfig,
-	}
-}
-
 // WaitAllResourcesReady waits for all specified resources to be ready in the given namespaces.
-func (u *Utils) WaitAllResourcesReady(resourceTypes []string, namespaces []string) error {
+func WaitAllResourcesReady(clusterAuth k8sclient.CluserAuthInfo, namespaces []string, gvr []schema.GroupVersionResource) error {
 	if len(namespaces) == 0 {
 		// If no namespaces are provided, use a function to list all namespaces
 		var err error
-		namespaces, err = u.listAllNamespaces()
+		namespaces, err = listAllNamespaces(clusterAuth.Clientset)
 		if err != nil {
 			return fmt.Errorf("failed to list all namespaces: %w", err)
 		}
 	}
 
 	var wg sync.WaitGroup
-	resultChan := make(chan error, len(namespaces)*len(resourceTypes))
+	resultChan := make(chan error, len(namespaces)*len(gvr))
 
 	for _, ns := range namespaces {
-		for _, resourceType := range resourceTypes {
+		for _, resource := range gvr {
 			wg.Add(1)
-			go func(ns, resourceType string) {
+			go func(ns string, resource schema.GroupVersionResource) {
 				defer wg.Done()
-				err := u.waitForResourceReady(ns, resourceType)
+				err := waitForResourceReady(clusterAuth.Config, ns, resource)
 				resultChan <- err
-			}(ns, resourceType)
+			}(ns, resource)
 		}
 	}
 
@@ -72,15 +57,14 @@ func (u *Utils) WaitAllResourcesReady(resourceTypes []string, namespaces []strin
 	// Collect results
 	for err := range resultChan {
 		if err != nil {
-			u.log.Error(err, "Error waiting for resource to be ready")
 			return err // Return on the first error encountered
 		}
 	}
 	return nil
 }
 
-func (u *Utils) listAllNamespaces() ([]string, error) {
-	namespaceList, err := u.k8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+func listAllNamespaces(k8sClient *kubernetes.Clientset) ([]string, error) {
+	namespaceList, err := k8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces: %w", err)
 	}
@@ -93,16 +77,16 @@ func (u *Utils) listAllNamespaces() ([]string, error) {
 	return namespaces, nil
 }
 
-func (u *Utils) waitForResourceReady(namespace, resourceType string) error {
-	dynamicClient, err := dynamic.NewForConfig(u.restConfig)
+func waitForResourceReady(restConfig *rest.Config, namespace string, gvr schema.GroupVersionResource) error {
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic client: %w", err)
 	}
 
-	gvr := schema.GroupVersionResource{Group: "fluxcd.io", Version: "v1", Resource: resourceType}
+	// Use the provided gvr for listing resources
 	resources, err := dynamicClient.Resource(gvr).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list resources for %s: %w", resourceType, err)
+		return fmt.Errorf("failed to list resources for %s: %w", gvr.Resource, err)
 	}
 
 	for _, resource := range resources.Items {
@@ -124,41 +108,11 @@ func (u *Utils) waitForResourceReady(namespace, resourceType string) error {
 		}
 
 		if !ready {
-			return fmt.Errorf("resource %s/%s is not ready", resourceType, resource.GetName())
+			return fmt.Errorf("resource %s/%s is not ready", gvr.Resource, resource.GetName())
 		}
 	}
 
 	return nil
-}
-
-func RepoRoot() string {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	err := cmd.Run()
-	if err != nil {
-		log.Fatalf("Failed to execute command: %v", err)
-	}
-
-	repoRoot := strings.TrimSpace(out.String())
-
-	return repoRoot
-}
-
-func GetCurrentContextName(config *rest.Config, kubeconfigPath string) (string, error) {
-	kubeconfig, err := clientcmd.LoadFromFile(kubeconfigPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to load kubeconfig file: %w", err)
-	}
-
-	currentContext := kubeconfig.CurrentContext
-	if currentContext == "" {
-		return "", fmt.Errorf("current context is not set in kubeconfig")
-	}
-
-	return currentContext, nil
 }
 
 // ApplyManifestsFile applies all manifests in a provided file
@@ -249,4 +203,34 @@ func waitUntilCRDEstablished(clientSet apiextensionsclientset.Interface, crdName
 			}
 		}
 	}
+}
+
+func RepoRoot() string {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	if err != nil {
+		log.Fatalf("Failed to execute command: %v", err)
+	}
+
+	repoRoot := strings.TrimSpace(out.String())
+
+	return repoRoot
+}
+
+func GetCurrentContextName(config *rest.Config, kubeconfigPath string) (string, error) {
+	kubeconfig, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to load kubeconfig file: %w", err)
+	}
+
+	currentContext := kubeconfig.CurrentContext
+	if currentContext == "" {
+		return "", fmt.Errorf("current context is not set in kubeconfig")
+	}
+
+	return currentContext, nil
 }
