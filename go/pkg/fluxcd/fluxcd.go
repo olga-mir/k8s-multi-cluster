@@ -125,7 +125,7 @@ func (f *FluxCD) createKustomization() error {
 		},
 		Spec: kustomizev1.KustomizationSpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
-			Path:     "./clusters/cluster-mgmt", // TODO - defaults?
+			Path:     "./clusters/tmp-mgmt", // TODO - defaults?
 			Prune:    true,
 			SourceRef: kustomizev1.CrossNamespaceSourceReference{
 				Kind: "GitRepository",

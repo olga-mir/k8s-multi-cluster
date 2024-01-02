@@ -2,3 +2,4 @@
 .kubeconfig*
 .setup.env
 go/multicluster-demo
+go/.task/
