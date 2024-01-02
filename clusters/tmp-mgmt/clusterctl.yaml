@@ -2,20 +2,17 @@ apiVersion: clusterctl.cluster.x-k8s.io/v1alpha3
 kind: ClusterctlConfig
 providers:
   - name: cluster-api
-    url: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.0/core-components.yaml"
+    url: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.2"
     type: CoreProvider
-    version: "v1.6.0"
   - name: kubeadm
-    url: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.6.0/bootstrap-components.yaml"
+    url: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.2/bootstrap-components.yaml"
     type: BootstrapProvider
-    version: "v1.6.0"
   - name: aws
     url: "https://github.com/kubernetes-sigs/cluster-api-provider-aws/releases/download/v2.3.1/infrastructure-components.yaml"
     type: InfrastructureProvider
-    version: "v2.3.1"
 
 variables:
-  KUBERNETES_VERSION: "1.29.0"
+  KUBERNETES_VERSION: "1.28.5"
   AWS_CONTROL_PLANE_MACHINE_TYPE: "t3.medium"
   AWS_NODE_MACHINE_TYPE: "t3.medium"
   CONTROL_PLANE_MACHINE_COUNT: "1"

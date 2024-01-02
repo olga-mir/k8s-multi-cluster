@@ -16,7 +16,7 @@ clusters:
 
   - name: "cluster-01"
     provider: "aws"
-    kubernetesVersion: "1.29.0"
+    kubernetesVersion: "1.28.5"
     podCIDR: "192.168.16.0/20"
     managementCluster: "cluster-mgmt"
     flux:

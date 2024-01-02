@@ -13,6 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+var requiredVars = []string{
+	"K8S_MULTI_KUBECONFIG",
+	"AWS_B64ENCODED_CREDENTIALS",
+	"FLUXCD_KEY_PATH",
+}
+
 var logger = log.Log
 
 var cfgFile string
@@ -23,7 +29,6 @@ var cfgFile string
 // - Useful in larger applications where commands might be spread across multiple files.
 // This approach is endorsed by Cobra creators as can be seen in the user guide: https://github.com/spf13/cobra/blob/main/site/content/user_guide.md
 // TODO - this is however can have implications on running tests and logger usage, e.g. https://github.com/spf13/cobra/issues/1599
-
 var rootCmd = &cobra.Command{
 	Use:   "multicluster-demo",
 	Short: "Multi Cluster Demo app build a multi cluster setup in a cloud provider of choice by using Cluster API or CrossPlane and runs scenarios such as immutable cluster upgrade with no downtime or cluster failover",
@@ -54,6 +59,11 @@ var runCmd = &cobra.Command{
 }
 
 func main() {
+	// Validate required environment variables
+	if err := validateEnvVars(requiredVars); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -86,4 +96,15 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+// validateEnvVars checks if all required environment variables are set.
+// It returns an error if any variable is missing.
+func validateEnvVars(vars []string) error {
+	for _, v := range vars {
+		if os.Getenv(v) == "" {
+			return fmt.Errorf("required environment variable not set: %s", v)
+		}
+	}
+	return nil
 }
