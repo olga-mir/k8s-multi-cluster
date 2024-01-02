@@ -38,6 +38,8 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 		return fmt.Errorf("error creating kind cluster: %v", err)
 	}
 
+	// TODO - naming. kindClusterConfig is the user config found in config.yaml + defaults
+	// it contains info about flux install for example.
 	kindClusterConfig := config.KindClusterConfig("tmp-mgmt")
 
 	kindConfig, err := k8sclient.GetKubernetesClient(kubeconfigPath, kindContext)
@@ -60,9 +62,19 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 
 	// Install FluxCD on the kind cluster
 	log.Info("Installing FluxCD on `kind` cluster")
-	kindFluxInstaller := fluxcd.NewFluxCDInstaller(log, kindClusterConfig.Flux, kubeClients.TempManagementCluster.Config, kubeClients.TempManagementCluster.Clientset)
-	if err := kindFluxInstaller.InstallFluxCD(); err != nil {
+	kindFluxCD, err := fluxcd.NewFluxCD(log, kindClusterConfig.Flux, kubeClients.TempManagementCluster)
+	if err != nil {
+		return fmt.Errorf("error creating FluxCD client: %v", err)
+	}
+
+	if err := kindFluxCD.InstallFluxCD(); err != nil {
 		return fmt.Errorf("error installing FluxCD: %v", err)
+	}
+
+	log.Info("Waiting for all Flux resources to become Ready")
+	err = kindFluxCD.WaitForFluxResources()
+	if err != nil {
+		return fmt.Errorf("error waiting for Flux resources: %v", err)
 	}
 
 	// Pivot to the permanent management cluster

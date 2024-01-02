@@ -14,36 +14,53 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	appconfig "github.com/olga-mir/k8s-multi-cluster/go/pkg/config"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/utils"
 )
 
-// FluxCDInstaller handles the installation of FluxCD
-type FluxCDInstaller struct {
-	log        logr.Logger
-	fluxConfig appconfig.FluxConfig
-	k8sClient  *kubernetes.Clientset
-	restConfig *rest.Config
+// FluxCD handles the installation of FluxCD
+type FluxCD struct {
+	log           logr.Logger
+	fluxConfig    appconfig.FluxConfig
+	clusterAuth   k8sclient.CluserAuthInfo
+	runtimeClient runtimeClient.Client
 }
 
-// NewFluxCDInstaller creates a new FluxCDInstaller with the provided configurations
-func NewFluxCDInstaller(log logr.Logger, fluxConfig appconfig.FluxConfig, restConfig *rest.Config, client *kubernetes.Clientset) *FluxCDInstaller {
-	return &FluxCDInstaller{
-		log:        log,
-		fluxConfig: fluxConfig,
-		k8sClient:  client,
-		restConfig: restConfig,
+// NewFluxCD creates a new FluxCD with the provided configurations
+func NewFluxCD(log logr.Logger, fluxConfig appconfig.FluxConfig, clusterAuth *k8sclient.CluserAuthInfo) (*FluxCD, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error getting kubeconfig: %s", err)
 	}
+
+	// Add Flux resource to scheme to the runtime scheme. Fixes this runtime error:
+	// `failed to create GitRepository: no kind is registered for the type v1beta1.GitRepository in scheme "pkg/runtime/scheme.go:100"`
+	runtimeScheme := runtime.NewScheme()
+	sourcev1.AddToScheme(runtimeScheme)
+	kustomizev1.AddToScheme(runtimeScheme)
+
+	// Create a new client to interact with cluster and host specific information
+	runtimeClient, err := runtimeClient.New(cfg, runtimeClient.Options{Scheme: runtimeScheme})
+	if err != nil {
+		return nil, fmt.Errorf("error creating client: %s", err)
+	}
+	return &FluxCD{
+		log:           log,
+		fluxConfig:    fluxConfig,
+		clusterAuth:   *clusterAuth,
+		runtimeClient: runtimeClient,
+	}, nil
 }
 
-func (f *FluxCDInstaller) InstallFluxCD() error {
-	dynamicClient, err := dynamic.NewForConfig(f.restConfig)
+func (f *FluxCD) InstallFluxCD() error {
+	dynamicClient, err := dynamic.NewForConfig(f.clusterAuth.Config)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic client: %w", err)
 	}
@@ -59,35 +76,24 @@ func (f *FluxCDInstaller) InstallFluxCD() error {
 	// Wait for CRDs to be established
 	fluxCRDs := []string{"kustomizations.kustomize.toolkit.fluxcd.io", "gitrepositories.source.toolkit.fluxcd.io"}
 	f.log.Info("Waiting for Flux CRDs to become established")
-	if err := utils.WaitForCRDs(f.restConfig, fluxCRDs); err != nil {
+	if err := utils.WaitForCRDs(f.clusterAuth.Config, fluxCRDs); err != nil {
 		return err
 	}
 
 	f.createFluxSystemSecret()
 
-	cfg, err := config.GetConfig()
-	if err != nil {
-		return fmt.Errorf("error getting kubeconfig: %s", err)
-	}
-
-	// Create a new client to interact with cluster and host specific information
-	kubeClient, err := runtimeClient.New(cfg, runtimeClient.Options{})
-	if err != nil {
-		return fmt.Errorf("error creating client: %s", err)
-	}
-
-	if err := f.createGitRepository(kubeClient); err != nil {
+	if err := f.createGitRepository(); err != nil {
 		log.Fatalf("Error creating GitRepository: %s", err)
 	}
 
-	if err := f.createKustomization(kubeClient); err != nil {
+	if err := f.createKustomization(); err != nil {
 		log.Fatalf("Error creating Kustomization: %s", err)
 	}
 
 	return nil
 }
 
-func (f *FluxCDInstaller) createGitRepository(kubeClient runtimeClient.Client) error {
+func (f *FluxCD) createGitRepository() error {
 	gitRepo := &sourcev1.GitRepository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "flux-system",
@@ -105,13 +111,13 @@ func (f *FluxCDInstaller) createGitRepository(kubeClient runtimeClient.Client) e
 		},
 	}
 
-	if err := kubeClient.Create(context.TODO(), gitRepo); err != nil {
+	if err := f.runtimeClient.Create(context.TODO(), gitRepo); err != nil {
 		return fmt.Errorf("failed to create GitRepository: %w", err)
 	}
 	return nil
 }
 
-func (f *FluxCDInstaller) createKustomization(kubeClient runtimeClient.Client) error {
+func (f *FluxCD) createKustomization() error {
 	kustomization := &kustomizev1.Kustomization{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "flux-system",
@@ -128,13 +134,13 @@ func (f *FluxCDInstaller) createKustomization(kubeClient runtimeClient.Client) e
 		},
 	}
 
-	if err := kubeClient.Create(context.TODO(), kustomization); err != nil {
+	if err := f.runtimeClient.Create(context.TODO(), kustomization); err != nil {
 		return fmt.Errorf("failed to create Kustomization: %w", err)
 	}
 	return nil
 }
 
-func (f *FluxCDInstaller) createFluxSystemSecret() {
+func (f *FluxCD) createFluxSystemSecret() {
 	secretData := make(map[string][]byte)
 
 	key, err := os.ReadFile(f.fluxConfig.KeyPath)
@@ -159,10 +165,30 @@ func (f *FluxCDInstaller) createFluxSystemSecret() {
 		Data: secretData,
 	}
 
-	_, err = f.k8sClient.CoreV1().Secrets(f.fluxConfig.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+	_, err = f.clusterAuth.Clientset.CoreV1().Secrets(f.fluxConfig.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
-		log.Fatalf("Error creating secret: %s", err.Error())
+		f.log.Error(err, "Error creating secret")
 	}
 
-	log.Println("Secret created successfully")
+	f.log.Info("Successfully created FluxCD secret")
+}
+
+func (f *FluxCD) WaitForFluxResources() error {
+	// Define the GVRs for Flux resources
+	fluxGVRs := []schema.GroupVersionResource{
+		{Group: "source.toolkit.fluxcd.io", Version: "v1", Resource: "gitrepositories"},
+		{Group: "helm.toolkit.fluxcd.io", Version: "v2beta1", Resource: "helmreleases"}, // deprecated
+		{Group: "helm.toolkit.fluxcd.io", Version: "v2beta2", Resource: "helmreleases"},
+		{Group: "source.toolkit.fluxcd.io", Version: "v1beta2", Resource: "helmrepositories"},
+		{Group: "kustomize.toolkit.fluxcd.io", Version: "v1", Resource: "kustomizations"},
+		{Group: "source.toolkit.fluxcd.io", Version: "v1beta2", Resource: "helmcharts"},
+	}
+
+	// Call the WaitAllResourcesReady function
+	namespaces := []string{} // empty list means all namespaces. TODO change funciton signature to make it clearer
+	err := utils.WaitAllResourcesReady(f.clusterAuth, namespaces, fluxGVRs)
+	if err != nil {
+		return err
+	}
+	return nil
 }

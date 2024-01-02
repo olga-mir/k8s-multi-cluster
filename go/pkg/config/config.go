@@ -59,5 +59,15 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	setDefaults(&config)
+
 	return &config, nil
+}
+
+func setDefaults(config *Config) {
+	for i := range config.Clusters {
+		if config.Clusters[i].Flux.Namespace == "" {
+			config.Clusters[i].Flux.Namespace = FluxNamespace
+		}
+	}
 }

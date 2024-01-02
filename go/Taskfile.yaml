@@ -8,7 +8,7 @@ tasks:
     generates:
       - multicluster-demo
 
-  build-project:
+  run-demo-build:
     deps: [build-app]
     cmds:
       - ./multicluster-demo build --config .
