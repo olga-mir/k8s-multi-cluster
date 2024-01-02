@@ -56,8 +56,9 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 	// Install Cluster API on the kind cluster. kind is a temporary "CAPI management cluster" which will be used to provision
 	// a cluster in the cloud which will be used as a permanent "CAPI management cluster" for the workload clusters.
 	log.Info("Installing Cluster API on `kind` cluster")
-	if err := capi.InitClusterAPI(kubeClients.TempManagementCluster.Config, kubeconfigPath); err != nil {
-		return fmt.Errorf("error installing Cluster API: %w", err)
+	capi := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, kubeconfigPath)
+	if err := capi.InstallClusterAPI(); err != nil {
+		return fmt.Errorf("error installing Cluster API: %v", err)
 	}
 
 	// Install FluxCD on the kind cluster
