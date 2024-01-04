@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	appconfig "github.com/olga-mir/k8s-multi-cluster/go/pkg/config"
@@ -30,24 +30,24 @@ type FluxCD struct {
 	log           logr.Logger
 	fluxConfig    appconfig.FluxConfig
 	clusterAuth   k8sclient.CluserAuthInfo
-	runtimeClient runtimeClient.Client
+	runtimeClient runtimeclient.Client
 }
 
 // NewFluxCD creates a new FluxCD with the provided configurations
 func NewFluxCD(log logr.Logger, fluxConfig appconfig.FluxConfig, clusterAuth *k8sclient.CluserAuthInfo) (*FluxCD, error) {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		return nil, fmt.Errorf("error getting kubeconfig: %s", err)
-	}
-
 	// Add Flux resource to scheme to the runtime scheme. Fixes this runtime error:
 	// `failed to create GitRepository: no kind is registered for the type v1beta1.GitRepository in scheme "pkg/runtime/scheme.go:100"`
 	runtimeScheme := runtime.NewScheme()
 	sourcev1.AddToScheme(runtimeScheme)
 	kustomizev1.AddToScheme(runtimeScheme)
 
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error getting kubeconfig: %s", err)
+	}
+
 	// Create a new client to interact with cluster and host specific information
-	runtimeClient, err := runtimeClient.New(cfg, runtimeClient.Options{Scheme: runtimeScheme})
+	runtimeClient, err := runtimeclient.New(cfg, runtimeclient.Options{Scheme: runtimeScheme})
 	if err != nil {
 		return nil, fmt.Errorf("error creating client: %s", err)
 	}
@@ -89,6 +89,11 @@ func (f *FluxCD) InstallFluxCD() error {
 	if err := f.createKustomization(); err != nil {
 		log.Fatalf("Error creating Kustomization: %s", err)
 	}
+
+	// TODO. We need to add a wait here because next step in `builder` will be calling to wait for all
+	// FluxCD resources. I think it is being called too early when there are still no resources. Then
+	// it also needs to wait for the Flux resources which are applied from the repo.
+	time.Sleep(3 * time.Minute)
 
 	return nil
 }

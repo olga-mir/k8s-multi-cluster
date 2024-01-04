@@ -30,7 +30,7 @@ func WaitAllResourcesReady(clusterAuth k8sclient.CluserAuthInfo, namespaces []st
 	if len(namespaces) == 0 {
 		// If no namespaces are provided, use a function to list all namespaces
 		var err error
-		namespaces, err = listAllNamespaces(clusterAuth.Clientset)
+		namespaces, err = ListAllNamespacesWithPrefix(clusterAuth.Clientset, "")
 		if err != nil {
 			return fmt.Errorf("failed to list all namespaces: %w", err)
 		}
@@ -63,7 +63,9 @@ func WaitAllResourcesReady(clusterAuth k8sclient.CluserAuthInfo, namespaces []st
 	return nil
 }
 
-func listAllNamespaces(k8sClient *kubernetes.Clientset) ([]string, error) {
+// ListAllNamespaces lists all namespaces in the cluster
+// if prefix is provided only namespace with this prefix are returned
+func ListAllNamespacesWithPrefix(k8sClient *kubernetes.Clientset, prefix string) ([]string, error) {
 	namespaceList, err := k8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list namespaces: %w", err)
@@ -71,7 +73,9 @@ func listAllNamespaces(k8sClient *kubernetes.Clientset) ([]string, error) {
 
 	var namespaces []string
 	for _, ns := range namespaceList.Items {
-		namespaces = append(namespaces, ns.Name)
+		if strings.HasPrefix(ns.Name, prefix) {
+			namespaces = append(namespaces, ns.Name)
+		}
 	}
 
 	return namespaces, nil

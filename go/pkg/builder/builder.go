@@ -56,7 +56,11 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 	// Install Cluster API on the kind cluster. kind is a temporary "CAPI management cluster" which will be used to provision
 	// a cluster in the cloud which will be used as a permanent "CAPI management cluster" for the workload clusters.
 	log.Info("Installing Cluster API on `kind` cluster")
-	capi := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, kubeconfigPath)
+	capi, err := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, kubeconfigPath)
+	if err != nil {
+		return fmt.Errorf("error creating Cluster API client: %v", err)
+	}
+
 	if err := capi.InstallClusterAPI(); err != nil {
 		return fmt.Errorf("error installing Cluster API: %v", err)
 	}
@@ -72,11 +76,40 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 		return fmt.Errorf("error installing FluxCD: %v", err)
 	}
 
+	// Waiting for "all" Flux resources to be ready is tricky, because it is multi-step process
+	// Once GitRepo and Kustomization are applied, flux will apply other manifests from the repo
+	// Need to wait for all these:
+	/*
+		% flux get all
+		NAME                            REVISION                SUSPENDED       READY   MESSAGE
+		gitrepository/flux-system       develop@sha1:d23c95cc   False           True    stored artifact for revision 'develop@sha1:d23c95cc'
+
+		NAME                            REVISION                SUSPENDED       READY   MESSAGE
+		kustomization/caaph             develop@sha1:d23c95cc   False           True    Applied revision: develop@sha1:d23c95cc
+		kustomization/caaph-cni         develop@sha1:d23c95cc   False           True    Applied revision: develop@sha1:d23c95cc
+		kustomization/flux-system       develop@sha1:d23c95cc   False           True    Applied revision: develop@sha1:d23c95cc
+	*/
 	log.Info("Waiting for all Flux resources to become Ready")
 	err = kindFluxCD.WaitForFluxResources()
 	if err != nil {
 		return fmt.Errorf("error waiting for Flux resources: %v", err)
 	}
+
+	// Now FLux has applied cluster manifests from the repo and we should wait for the cluster(s) to be ready
+	capi.WaitForClusterProvisioning("cluster-mgmt", "cluster-mgmt")
+
+	// After cluster is provisioned from Cluster API standpoint, we still need to wait for the CNI and Flux
+	// being ready on the "workload" cluster, which will be permanent management cluster.
+	/*
+			% k get hrp -A
+		NAMESPACE      NAME                        CLUSTER        READY   REASON   STATUS     REVISION
+		cluster-mgmt   cilium-cluster-mgmt-9w44z   cluster-mgmt   True             deployed   1
+		%
+		% k get hcp -A
+		NAMESPACE      NAME             READY   REASON
+		cluster-mgmt   cilium           True
+		cluster-mgmt   cilium-no-mesh   True
+	*/
 
 	// Pivot to the permanent management cluster
 	// if err := capi.PivotCluster("path/to/temp/kubeconfig", "path/to/permanent/kubeconfig"); err != nil {
