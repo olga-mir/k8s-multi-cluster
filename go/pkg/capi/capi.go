@@ -11,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/cluster-api/cmd/clusterctl/client"
+	capiclient "sigs.k8s.io/cluster-api/cmd/clusterctl/client"
+	capiconfig "sigs.k8s.io/cluster-api/cmd/clusterctl/client/config"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -45,16 +47,17 @@ func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubec
 }
 
 func (c *ClusterAPI) InstallClusterAPI() error {
-	// TODO - hardcoded while I am figuring out why
-	// `clusterctl init --config clusters/tmp-mgmt/clusterctl.yaml` doesn't work
-	capiVersion := "v1.6.0"
-	capaVersion := "v2.3.1"
+	clusterctlConfigPath := utils.RepoRoot() + "/clusters/tmp-mgmt/clusterctl.yaml"
 
-	// Correct providers based on the CAPI version
-	coreProvider := fmt.Sprintf("cluster-api:%s", capiVersion)
-	bootstrapProvider := fmt.Sprintf("kubeadm:%s", capiVersion)
-	controlPlaneProvider := fmt.Sprintf("kubeadm:%s", capiVersion)
-	infraProvider := fmt.Sprintf("aws:%s", capaVersion)
+	clusterctlConfig, err := capiconfig.New(context.TODO(), clusterctlConfigPath)
+	if err != nil {
+		return fmt.Errorf("error creating clusterctl config: %w", err)
+	}
+	// Create the clusterctl client with the custom configuration
+	clusterctlClient, err := client.New(context.TODO(), "", client.InjectConfig(clusterctlConfig))
+	if err != nil {
+		return fmt.Errorf("error creating clusterctl client: %w", err)
+	}
 
 	// Create a clusterctl client
 	// Get the current context name from the rest.Config
@@ -63,18 +66,8 @@ func (c *ClusterAPI) InstallClusterAPI() error {
 		return fmt.Errorf("error getting current context name: %w", err)
 	}
 
-	// Initialize clusterctl client with the existing kubeconfig and context
-	clusterctlClient, err := client.New(context.TODO(), "")
-	if err != nil {
-		return fmt.Errorf("error creating clusterctl client: %w", err)
-	}
-
-	initOptions := client.InitOptions{
-		Kubeconfig:              client.Kubeconfig{Path: c.kubeconfigPath, Context: contextName},
-		CoreProvider:            coreProvider,
-		BootstrapProviders:      []string{bootstrapProvider},
-		ControlPlaneProviders:   []string{controlPlaneProvider},
-		InfrastructureProviders: []string{infraProvider},
+	initOptions := capiclient.InitOptions{
+		Kubeconfig: capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: contextName},
 	}
 
 	// Install Cluster API components on this cluster.
@@ -150,4 +143,8 @@ func (c *ClusterAPI) WaitForClusterDeletion(clusterName, namespace string) error
 			time.Sleep(15 * time.Second)
 		}
 	}
+}
+
+func (c *ClusterAPI) PivotCluster() {
+
 }

@@ -1,15 +1,21 @@
 apiVersion: clusterctl.cluster.x-k8s.io/v1alpha3
 kind: ClusterctlConfig
+
+# note that the following URLs are not valid URLs, they don't work even when allowing redirects, but
+# this is how clusterctl expects them for some reason.
+# `https://github.com/{owner}/{Repository}/releases/{latest%7Cversion-tag}/{componentsClient.yaml}`
+# https://kubernetes.slack.com/archives/C8TSNPY4T/p1704227467512249
+
 providers:
   - name: cluster-api
-    url: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.2"
     type: CoreProvider
+    url: "https://github.com/kubernetes-sigs/cluster-api/releases/v1.6.0/core-components.yaml"
   - name: kubeadm
-    url: "https://github.com/kubernetes-sigs/cluster-api/releases/download/v1.5.2/bootstrap-components.yaml"
     type: BootstrapProvider
+    url: "https://github.com/kubernetes-sigs/cluster-api/releases/v1.6.0/bootstrap-components.yaml"
   - name: aws
-    url: "https://github.com/kubernetes-sigs/cluster-api-provider-aws/releases/download/v2.3.1/infrastructure-components.yaml"
     type: InfrastructureProvider
+    url: "https://github.com/kubernetes-sigs/cluster-api-provider-aws/releases/v2.3.1/infrastructure-components.yaml"
 
 variables:
   KUBERNETES_VERSION: "1.28.5"
