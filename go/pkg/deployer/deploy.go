@@ -79,15 +79,17 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	// Once GitRepo and Kustomization are applied, flux will apply other manifests from the repo
 	// Need to wait for all these:
 	/*
-		% flux get all
-		NAME                            REVISION                SUSPENDED       READY   MESSAGE
-		gitrepository/flux-system       develop@sha1:d23c95cc   False           True    stored artifact for revision 'develop@sha1:d23c95cc'
+		% k8s-multi-cluster % flux get all -A
+		NAMESPACE       NAME                            REVISION                SUSPENDED       READY   MESSAGE
+		flux-system     gitrepository/flux-system       develop@sha1:5c0b03c8   False           True    stored artifact for revision 'develop@sha1:5c0b03c8'
 
-		NAME                            REVISION                SUSPENDED       READY   MESSAGE
-		kustomization/caaph             develop@sha1:d23c95cc   False           True    Applied revision: develop@sha1:d23c95cc
-		kustomization/caaph-cni         develop@sha1:d23c95cc   False           True    Applied revision: develop@sha1:d23c95cc
-		kustomization/flux-system       develop@sha1:d23c95cc   False           True    Applied revision: develop@sha1:d23c95cc
+		NAMESPACE       NAME                            REVISION                SUSPENDED       READY   MESSAGE
+		cluster-mgmt    kustomization/flux-remote       develop@sha1:5c0b03c8   False           True    Applied revision: develop@sha1:5c0b03c8
+		flux-system     kustomization/caaph             develop@sha1:5c0b03c8   False           True    Applied revision: develop@sha1:5c0b03c8
+		flux-system     kustomization/caaph-cni         develop@sha1:5c0b03c8   False           True    Applied revision: develop@sha1:5c0b03c8
+		flux-system     kustomization/flux-system       develop@sha1:5c0b03c8   False           True    Applied revision: develop@sha1:5c0b03c8
 	*/
+
 	log.Info("Waiting for all Flux resources to become Ready")
 	err = kindFluxCD.WaitForFluxResources()
 	if err != nil {
@@ -96,6 +98,17 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 
 	// Now FLux has applied cluster manifests from the repo and we should wait for the cluster(s) to be ready
 	capi.WaitForClusterFullyRunning("cluster-mgmt", "cluster-mgmt")
+
+	// After cluster is ready we need to get its kubeconfig, then suspend flux and pivot management cluster
+	// flux --kubeconfig $KUBECONFIG --context kind-kind suspend kustomization flux-system
+	err = capi.GetKubeconfig("cluster-mgmt")
+	if err != nil {
+		return fmt.Errorf("error getting kubeconfig for cluster-mgmt: %v", err)
+	}
+	err = kindFluxCD.SuspendKustomization("flux-system")
+	if err != nil {
+		return fmt.Errorf("error suspending kustomization flux-system: %v", err)
+	}
 
 	// Pivot to the permanent management cluster
 	if err := capi.PivotCluster(kubeClients.PermManagementCluster); err != nil {

@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -205,5 +206,30 @@ func (f *FluxCD) WaitForFluxResources() error {
 
 func (f *FluxCD) SuspendAll() error {
 	f.log.Info("TODO - implementation. Suspending Flux resources")
+	return nil
+}
+
+func (f *FluxCD) SuspendKustomization(name string) error {
+	// There is no suspend method in the Kustomization API, so we need to suspend the Kustomization
+	// https://pkg.go.dev/github.com/fluxcd/kustomize-controller/api@v1.2.1/v1#pkg-functions
+	// TODO - verify that there is no method
+
+	// Fetch the Kustomization
+	kustomization := &kustomizev1.Kustomization{}
+	if err := f.runtimeClient.Get(context.TODO(), client.ObjectKey{
+		Name:      name,
+		Namespace: f.fluxConfig.Namespace,
+	}, kustomization); err != nil {
+		return fmt.Errorf("failed to get kustomization: %w", err)
+	}
+
+	// Suspend the Kustomization
+	kustomization.Spec.Suspend = true
+	if err := f.runtimeClient.Update(context.TODO(), kustomization); err != nil {
+		return fmt.Errorf("failed to suspend kustomization: %w", err)
+	}
+
+	f.log.Info("Suspended kustomization", name, "in namespace", f.fluxConfig.Namespace)
+
 	return nil
 }

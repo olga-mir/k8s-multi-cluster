@@ -6,23 +6,26 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
-	"github.com/olga-mir/k8s-multi-cluster/go/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/clientcmd"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capiclient "sigs.k8s.io/cluster-api/cmd/clusterctl/client"
 	capiconfig "sigs.k8s.io/cluster-api/cmd/clusterctl/client/config"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/utils"
 )
 
 type ClusterAPI struct {
 	log              logr.Logger
 	clusterAuth      *k8sclient.CluserAuthInfo
-	kubeconfigPath   string
 	runtimeClient    runtimeclient.Client
 	clusterctlClient capiclient.Client
+	kubeconfigPath   string
+	contextName      string
 }
 
 func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubeconfigPath string) (*ClusterAPI, error) {
@@ -51,25 +54,27 @@ func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubec
 		return nil, fmt.Errorf("error creating client: %s", err)
 	}
 
+	// Get the current context name from the rest.Config
+	contextName, err := utils.GetCurrentContextName(clusterAuth.Config, kubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("error getting current context name: %w", err)
+	}
+
 	return &ClusterAPI{
 		log:              log,
 		clusterAuth:      clusterAuth,
-		kubeconfigPath:   kubeconfigPath,
 		runtimeClient:    runtimeClient,
 		clusterctlClient: clusterctlClient,
+		kubeconfigPath:   kubeconfigPath,
+		contextName:      contextName,
 	}, nil
 }
 
 func (c *ClusterAPI) InstallClusterAPI() error {
 	// Create a clusterctl client
-	// Get the current context name from the rest.Config
-	contextName, err := utils.GetCurrentContextName(c.clusterAuth.Config, c.kubeconfigPath)
-	if err != nil {
-		return fmt.Errorf("error getting current context name: %w", err)
-	}
 
 	initOptions := capiclient.InitOptions{
-		Kubeconfig:              capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: contextName},
+		Kubeconfig:              capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.contextName},
 		InfrastructureProviders: []string{"aws:v2.3.1"},
 	}
 
@@ -82,6 +87,7 @@ func (c *ClusterAPI) InstallClusterAPI() error {
 }
 
 func (c *ClusterAPI) WaitForClusterFullyRunning(clusterName, namespace string) error {
+	c.log.Info("Wating for CAPI cluster to be provisioned and all system components healthy")
 	err := c.waitForClusterProvisioning(clusterName, namespace)
 	if err != nil {
 		return fmt.Errorf("error waiting for cluster provisioning: %w", err)
@@ -180,17 +186,34 @@ func (c *ClusterAPI) WaitForClusterDeletion(clusterName, namespace string) error
 	}
 }
 
-func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo) error {
-
-	// TODO - context name can be part of ClusterAuth or `ClusterAPI` receiver
-	contextName, err := utils.GetCurrentContextName(c.clusterAuth.Config, c.kubeconfigPath)
-	if err != nil {
-		return fmt.Errorf("error getting current context name: %w", err)
+func (c *ClusterAPI) GetKubeconfig(workloadClusterName string) error {
+	getKubeconfigOptions := capiclient.GetKubeconfigOptions{
+		Namespace:           workloadClusterName,
+		WorkloadClusterName: workloadClusterName,
+		Kubeconfig: capiclient.Kubeconfig{
+			Path:    c.kubeconfigPath,
+			Context: c.contextName,
+		},
 	}
 
+	workloadKubeconfig, err := c.clusterctlClient.GetKubeconfig(context.TODO(), getKubeconfigOptions)
+	if err != nil {
+		c.log.Error(err, "Failed to get kubeconfig")
+		return err
+	}
+
+	err = c.mergeKubeconfigs(workloadKubeconfig, c.kubeconfigPath)
+	if err != nil {
+		fmt.Printf("Error merging kubeconfig files: %s\n", err)
+	}
+
+	return nil
+}
+
+func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo) error {
 	moveOptions := capiclient.MoveOptions{
-		FromKubeconfig: capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: contextName},
-		ToKubeconfig:   capiclient.Kubeconfig{Path: c.kubeconfigPath}, //, Context: "cluster-mgmt-admin@cluster-mgmt"}, // TODO - context name
+		FromKubeconfig: capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.contextName},
+		ToKubeconfig:   capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: "cluster-mgmt-admin@cluster-mgmt"}, // TODO - context name
 	}
 
 	// Perform the move
@@ -199,6 +222,43 @@ func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo) err
 		return err
 	}
 
+	// TODO - is there wait and/or validation needed here?
+
 	c.log.Info("Successfully pivoted Cluster API components")
+	return nil
+}
+
+// mergeKubeconfigs merges the content of srcKubeconfig into dstKubeconfigPath.
+// srcKubeconfig is a kubeconfig file in a string form
+// dstKubeconfigPath is the path to the destination kubeconfig file, which already contains other content.
+func (c *ClusterAPI) mergeKubeconfigs(srcKubeconfig, dstKubeconfigPath string) error {
+	// Load the destination kubeconfig
+	dstConfig, err := clientcmd.LoadFromFile(dstKubeconfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to load destination kubeconfig: %w", err)
+	}
+
+	// Parse the source kubeconfig from the string
+	srcConfig, err := clientcmd.Load([]byte(srcKubeconfig))
+	if err != nil {
+		return fmt.Errorf("failed to parse source kubeconfig: %w", err)
+	}
+
+	// Merge srcConfig into dstConfig
+	for key, value := range srcConfig.Clusters {
+		dstConfig.Clusters[key] = value
+	}
+	for key, value := range srcConfig.Contexts {
+		dstConfig.Contexts[key] = value
+	}
+	for key, value := range srcConfig.AuthInfos {
+		dstConfig.AuthInfos[key] = value
+	}
+
+	// Write the merged configuration back to the destination kubeconfig file
+	if err = clientcmd.WriteToFile(*dstConfig, dstKubeconfigPath); err != nil {
+		return fmt.Errorf("failed to write merged kubeconfig: %w", err)
+	}
+
 	return nil
 }

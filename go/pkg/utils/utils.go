@@ -44,7 +44,7 @@ func WaitAllResourcesReady(clusterAuth k8sclient.CluserAuthInfo, namespaces []st
 			wg.Add(1)
 			go func(ns string, resource schema.GroupVersionResource) {
 				defer wg.Done()
-				err := waitForResourceReady(clusterAuth.Config, ns, resource, 7*time.Minute)
+				err := waitForResourceReady(clusterAuth.Config, ns, resource, 10*time.Minute)
 				resultChan <- err
 			}(ns, resource)
 		}
@@ -136,7 +136,7 @@ func isResourceReady(dynamicClient dynamic.Interface, namespace string, gvr sche
 		}
 
 		if !ready {
-			return false, fmt.Errorf("resource %s/%s is not ready", gvr.Resource, resource.GetName())
+			return false, nil
 		}
 	}
 	return true, nil

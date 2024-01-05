@@ -42,10 +42,10 @@ Project is managed with `Taskfile`
 $ task build-app
 ```
 
-- Build the clusters (this task will re-build the app if necessary):
+- Deploy the clusters (this task will re-build the app if necessary):
 
 ```bash
-$ task run-demo-build
+$ task run-deploy
 ```
 
 - Run scenarios
@@ -54,4 +54,12 @@ NOT IMPLEMENTED YET
 
 ```bash
 $ task run-demo-run
+```
+
+- Cleanup resources
+
+NOT IMPLEMENTED YET
+
+```bash
+$ task run-uninstall
 ```
