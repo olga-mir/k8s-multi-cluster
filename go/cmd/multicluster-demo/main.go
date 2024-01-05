@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/olga-mir/k8s-multi-cluster/go/pkg/builder"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/config"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/deployer"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/runner"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -36,13 +36,13 @@ var rootCmd = &cobra.Command{
 
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
-	Short: "Deploy a multi cluster setup in a cloud provider of choice by using Cluster API or CrossPlane according to specification provided in config file",
+	Short: "Deploys a multi-cluster setup in a cloud provider of choice by using Cluster API or CrossPlane according to specification provided in config file",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig(cfgFile)
 		if err != nil {
 			return err
 		}
-		return builder.Deploy(logger, cfg)
+		return deployer.Deploy(logger, cfg)
 	},
 }
 
@@ -54,7 +54,7 @@ var uninstallCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return builder.Uninstall(logger, cfg)
+		return deployer.Uninstall(logger, cfg)
 	},
 }
 
@@ -89,7 +89,8 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.myapp.yaml)")
-	rootCmd.AddCommand(buildCmd)
+	rootCmd.AddCommand(deployCmd)
+	rootCmd.AddCommand(uninstallCmd)
 	rootCmd.AddCommand(runCmd)
 }
 

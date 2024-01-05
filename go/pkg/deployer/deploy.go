@@ -1,4 +1,4 @@
-package builder
+package deployer
 
 import (
 	"fmt"
@@ -22,8 +22,7 @@ type KubernetesClients struct {
 	WorkloadClusters      map[string]*k8sclient.CluserAuthInfo // Map of workload clusters
 }
 
-func BuildClusters(log logr.Logger, cfg *config.Config) error {
-
+func Deploy(log logr.Logger, cfg *config.Config) error {
 	const kindContext = "kind-tmp-mgmt" // TODO
 
 	kubeconfigPath := os.Getenv("K8S_MULTI_KUBECONFIG")
@@ -103,5 +102,27 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 		return fmt.Errorf("error pivoting to permanent cluster: %v", err)
 	}
 
+	return nil
+}
+
+func Uninstall(log logr.Logger, cfg *config.Config) error {
+	log.Info("Suspending all FluxCD Kustomizations and HelmReleases")
+	/*
+		if err := fluxcdClientTODO.SuspendAll(); err != nil {
+			return fmt.Errorf("error suspending all FluxCD resources: %v", err)
+		}
+
+		log.Info("Deleting All Cluster API Clusters")
+		if err := capi.DeleteAllClusters(log); err != nil {
+			return fmt.Errorf("error deleting all Cluster API clusters: %v", err)
+		}
+
+		log.Info("Deleting kind cluster")
+		if err := kind.DeleteCluster(); err != nil {
+			return fmt.Errorf("error deleting kind cluster: %v", err)
+		}
+
+		log.Info("Uninstalling complete")
+	*/
 	return nil
 }

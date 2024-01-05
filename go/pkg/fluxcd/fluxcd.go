@@ -202,3 +202,8 @@ func (f *FluxCD) WaitForFluxResources() error {
 	}
 	return nil
 }
+
+func (f *FluxCD) SuspendAll() error {
+	f.log.Info("TODO - implementation. Suspending Flux resources")
+	return nil
+}
