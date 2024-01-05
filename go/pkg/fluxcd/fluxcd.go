@@ -93,6 +93,7 @@ func (f *FluxCD) InstallFluxCD() error {
 	// TODO. We need to add a wait here because next step in `builder` will be calling to wait for all
 	// FluxCD resources. I think it is being called too early when there are still no resources. Then
 	// it also needs to wait for the Flux resources which are applied from the repo.
+	f.log.Info("Sleeping for 3 min to allow Flux to apply resources from the repository")
 	time.Sleep(3 * time.Minute)
 
 	return nil
@@ -189,9 +190,13 @@ func (f *FluxCD) WaitForFluxResources() error {
 		{Group: "source.toolkit.fluxcd.io", Version: "v1beta2", Resource: "helmcharts"},
 	}
 
-	// Call the WaitAllResourcesReady function
-	namespaces := []string{} // empty list means all namespaces. TODO change funciton signature to make it clearer
-	err := utils.WaitAllResourcesReady(f.clusterAuth, namespaces, fluxGVRs)
+	clusterNamespaces, err := utils.ListAllNamespacesWithPrefix(f.clusterAuth.Clientset, "cluster")
+	if err != nil {
+		return fmt.Errorf("failed to list all namespaces: %w", err)
+	}
+	namespaces := append(clusterNamespaces, appconfig.ProjectNamespaces...)
+
+	err = utils.WaitAllResourcesReady(f.clusterAuth, namespaces, fluxGVRs)
 	if err != nil {
 		return err
 	}

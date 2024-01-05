@@ -19,6 +19,8 @@ const (
 	DefaultGithubBranch = "develop"
 )
 
+var ProjectNamespaces = []string{FluxNamespace, "caaph-system"} // TODO - flux namespace can be part of config (dynamic)
+
 // KindClusterConfig provides a default configuration for a kind cluster.
 func KindClusterConfig(clusterName string) ClusterConfig {
 	fluxcdKey := os.Getenv("FLUXCD_KEY_PATH")
