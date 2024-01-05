@@ -34,15 +34,27 @@ var rootCmd = &cobra.Command{
 	Short: "Multi Cluster Demo app build a multi cluster setup in a cloud provider of choice by using Cluster API or CrossPlane and runs scenarios such as immutable cluster upgrade with no downtime or cluster failover",
 }
 
-var buildCmd = &cobra.Command{
-	Use:   "build",
-	Short: "Build all clusters",
+var deployCmd = &cobra.Command{
+	Use:   "deploy",
+	Short: "Deploy a multi cluster setup in a cloud provider of choice by using Cluster API or CrossPlane according to specification provided in config file",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.LoadConfig(cfgFile)
 		if err != nil {
 			return err
 		}
-		return builder.BuildClusters(logger, cfg)
+		return builder.Deploy(logger, cfg)
+	},
+}
+
+var uninstallCmd = &cobra.Command{
+	Use:   "uninstall",
+	Short: "Uninstall all project resources",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cfg, err := config.LoadConfig(cfgFile)
+		if err != nil {
+			return err
+		}
+		return builder.Uninstall(logger, cfg)
 	},
 }
 
