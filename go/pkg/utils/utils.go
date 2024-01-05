@@ -44,7 +44,7 @@ func WaitAllResourcesReady(clusterAuth k8sclient.CluserAuthInfo, namespaces []st
 			wg.Add(1)
 			go func(ns string, resource schema.GroupVersionResource) {
 				defer wg.Done()
-				err := waitForResourceReady(clusterAuth.Config, ns, resource)
+				err := waitForResourceReady(clusterAuth.Config, ns, resource, 7*time.Minute)
 				resultChan <- err
 			}(ns, resource)
 		}
@@ -81,7 +81,69 @@ func ListAllNamespacesWithPrefix(k8sClient *kubernetes.Clientset, prefix string)
 	return namespaces, nil
 }
 
-func waitForResourceReady(restConfig *rest.Config, namespace string, gvr schema.GroupVersionResource) error {
+func waitForResourceReady(restConfig *rest.Config, namespace string, resource schema.GroupVersionResource, timeout time.Duration) error {
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	// Setup a ticker for periodic checks
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	// Setup a deadline for timeout
+	deadline := time.Now().Add(timeout)
+
+	for {
+		select {
+		case <-time.After(time.Until(deadline)):
+			return fmt.Errorf("timeout waiting for resource %s in namespace %s to be ready", resource.Resource, namespace)
+
+		case <-ticker.C:
+			// Check resource status
+			ready, err := isResourceReady(dynamicClient, namespace, resource)
+			if err != nil {
+				return err
+			}
+			if ready {
+				return nil
+			}
+		}
+	}
+}
+
+func isResourceReady(dynamicClient dynamic.Interface, namespace string, gvr schema.GroupVersionResource) (bool, error) {
+	resources, err := dynamicClient.Resource(gvr).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to list resources for %s: %w", gvr.Resource, err)
+	}
+	for _, resource := range resources.Items {
+		conditions, found, err := unstructured.NestedSlice(resource.Object, "status", "conditions")
+		if err != nil || !found {
+			continue // Skip resources without status conditions
+		}
+
+		ready := false
+		for _, cond := range conditions {
+			condition, ok := cond.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if condition["type"] == "Ready" && condition["status"] == "True" {
+				ready = true
+				break
+			}
+		}
+
+		if !ready {
+			return false, fmt.Errorf("resource %s/%s is not ready", gvr.Resource, resource.GetName())
+		}
+	}
+	return true, nil
+}
+
+/*
+func waitForResourceReady1(restConfig *rest.Config, namespace string, gvr schema.GroupVersionResource) error {
 	dynamicClient, err := dynamic.NewForConfig(restConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic client: %w", err)
@@ -118,6 +180,7 @@ func waitForResourceReady(restConfig *rest.Config, namespace string, gvr schema.
 
 	return nil
 }
+*/
 
 // ApplyManifestsFile applies all manifests in a provided file
 func ApplyManifestsFile(dynamicClient dynamic.Interface, manifestFile string) error {

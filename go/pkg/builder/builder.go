@@ -96,24 +96,12 @@ func BuildClusters(log logr.Logger, cfg *config.Config) error {
 	}
 
 	// Now FLux has applied cluster manifests from the repo and we should wait for the cluster(s) to be ready
-	capi.WaitForClusterProvisioning("cluster-mgmt", "cluster-mgmt")
-
-	// After cluster is provisioned from Cluster API standpoint, we still need to wait for the CNI and Flux
-	// being ready on the "workload" cluster, which will be permanent management cluster.
-	/*
-			% k get hrp -A
-		NAMESPACE      NAME                        CLUSTER        READY   REASON   STATUS     REVISION
-		cluster-mgmt   cilium-cluster-mgmt-9w44z   cluster-mgmt   True             deployed   1
-		%
-		% k get hcp -A
-		NAMESPACE      NAME             READY   REASON
-		cluster-mgmt   cilium           True
-		cluster-mgmt   cilium-no-mesh   True
-	*/
+	capi.WaitForClusterFullyRunning("cluster-mgmt", "cluster-mgmt")
 
 	// Pivot to the permanent management cluster
-	// if err := capi.PivotCluster("path/to/temp/kubeconfig", "path/to/permanent/kubeconfig"); err != nil {
-	//	log.Fatalf("Error pivoting to permanent cluster: %v", err)
-	//}
+	if err := capi.PivotCluster(kubeClients.PermManagementCluster); err != nil {
+		return fmt.Errorf("error pivoting to permanent cluster: %v", err)
+	}
+
 	return nil
 }
