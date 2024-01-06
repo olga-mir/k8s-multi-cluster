@@ -2,7 +2,6 @@ package deployer
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/capi"
@@ -23,25 +22,18 @@ type KubernetesClients struct {
 }
 
 func Deploy(log logr.Logger, cfg *config.Config) error {
-	const kindContext = "kind-tmp-mgmt" // TODO
-
-	kubeconfigPath := os.Getenv("K8S_MULTI_KUBECONFIG")
-	if kubeconfigPath == "" {
-		return fmt.Errorf("K8S_MULTI_KUBECONFIG environment variable is not set")
-	}
-
 	// Create a kind cluster and get its kubeconfig
 	log.Info("Create `kind` cluster")
-	err := kind.CreateCluster(kubeconfigPath)
+	err := kind.CreateCluster(cfg.KubeconfigPath)
 	if err != nil {
 		return fmt.Errorf("error creating kind cluster: %v", err)
 	}
 
 	// TODO - naming. kindClusterConfig is the user config found in config.yaml + defaults
 	// it contains info about flux install for example.
-	kindClusterConfig := config.KindClusterConfig("tmp-mgmt")
+	kindClusterConfig := config.KindClusterConfig(config.DefaultKindClusterName)
 
-	kindConfig, err := k8sclient.GetKubernetesClient(kubeconfigPath, kindContext)
+	kindConfig, err := k8sclient.GetKubernetesClient(cfg.KubeconfigPath, "kind-"+config.DefaultKindClusterName)
 	if err != nil {
 		return fmt.Errorf("failed to create Kubernetes client for kind cluster: %v", err)
 	}
@@ -55,18 +47,18 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	// Install Cluster API on the kind cluster. kind is a temporary "CAPI management cluster" which will be used to provision
 	// a cluster in the cloud which will be used as a permanent "CAPI management cluster" for the workload clusters.
 	log.Info("Installing Cluster API on `kind` cluster")
-	capi, err := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, kubeconfigPath)
+	tmpMgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, cfg.KubeconfigPath)
 	if err != nil {
 		return fmt.Errorf("error creating Cluster API client: %v", err)
 	}
 
-	if err := capi.InstallClusterAPI(); err != nil {
+	if err := tmpMgmtCAPI.InstallClusterAPI(); err != nil {
 		return fmt.Errorf("error installing Cluster API: %v", err)
 	}
 
 	// Install FluxCD on the kind cluster
 	log.Info("Installing FluxCD on `kind` cluster")
-	kindFluxCD, err := fluxcd.NewFluxCD(log, kindClusterConfig.Flux, kubeClients.TempManagementCluster)
+	kindFluxCD, err := fluxcd.NewFluxCD(log, kindClusterConfig.Flux, cfg.Github, kubeClients.TempManagementCluster)
 	if err != nil {
 		return fmt.Errorf("error creating FluxCD client: %v", err)
 	}
@@ -97,21 +89,34 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	}
 
 	// Now FLux has applied cluster manifests from the repo and we should wait for the cluster(s) to be ready
-	capi.WaitForClusterFullyRunning("cluster-mgmt", "cluster-mgmt")
+	tmpMgmtCAPI.WaitForClusterFullyRunning("cluster-mgmt", "cluster-mgmt")
 
 	// After cluster is ready we need to get its kubeconfig, then suspend flux and pivot management cluster
 	// flux --kubeconfig $KUBECONFIG --context kind-kind suspend kustomization flux-system
-	err = capi.GetKubeconfig("cluster-mgmt")
+	err = tmpMgmtCAPI.GetClusterAuthInfo("cluster-mgmt", kubeClients.PermManagementCluster)
 	if err != nil {
 		return fmt.Errorf("error getting kubeconfig for cluster-mgmt: %v", err)
 	}
+
 	err = kindFluxCD.SuspendKustomization("flux-system")
 	if err != nil {
 		return fmt.Errorf("error suspending kustomization flux-system: %v", err)
 	}
 
+	// install Cluster API on permanent management cluster
+	mgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.PermManagementCluster, cfg.KubeconfigPath)
+	if err != nil {
+		return fmt.Errorf("error creating Cluster API client: %v", err)
+	}
+
+	log.Info("Installing Cluster API on permanent management cluster")
+	if err := mgmtCAPI.InstallClusterAPI(); err != nil {
+		return fmt.Errorf("error installing Cluster API: %v", err)
+	}
+	log.Info("Finished installing Cluster API on permanent management cluster")
+
 	// Pivot to the permanent management cluster
-	if err := capi.PivotCluster(kubeClients.PermManagementCluster); err != nil {
+	if err := tmpMgmtCAPI.PivotCluster(kubeClients.PermManagementCluster); err != nil {
 		return fmt.Errorf("error pivoting to permanent cluster: %v", err)
 	}
 
@@ -126,7 +131,7 @@ func Uninstall(log logr.Logger, cfg *config.Config) error {
 		}
 
 		log.Info("Deleting All Cluster API Clusters")
-		if err := capi.DeleteAllClusters(log); err != nil {
+		if err := tmpMgmtCAPI.DeleteAllClusters(log); err != nil {
 			return fmt.Errorf("error deleting all Cluster API clusters: %v", err)
 		}
 

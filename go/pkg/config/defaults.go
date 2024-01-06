@@ -13,10 +13,13 @@ const (
 	// select the one that starts with "ecdsa-sha2-nistp256"
 	GithubKnownHosts = "github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg="
 
-	// TODO - make dynamic or env vars
-	DefaultGithubUser   = "olga-mir"
-	DefaultGithubRepo   = "k8s-multi-cluster"
-	DefaultGithubBranch = "develop"
+	// Cluster names and contexts
+	// CURRENT   NAME                              CLUSTER         AUTHINFO             NAMESPACE
+	//           cluster-mgmt-admin@cluster-mgmt   cluster-mgmt    cluster-mgmt-admin
+	//           kind-tmp-mgmt                     kind-tmp-mgmt   kind-tmp-mgmt
+	DefaultKindClusterName    = "tmp-mgmt"
+	DefaultCAPIClusterNameTpl = "cluster-{{.Name}}"
+	DefaultCAPIContextNameTpl = "cluster-{{.Name}}-admin@{{.Name}}"
 )
 
 var ProjectNamespaces = []string{FluxNamespace, "caaph-system"} // TODO - flux namespace can be part of config (dynamic)
@@ -35,13 +38,8 @@ func KindClusterConfig(clusterName string) ClusterConfig {
 		Provider:          "kind",
 		ManagementCluster: "",
 		Flux: FluxConfig{
-			KeyPath: fluxcdKey,
-			Version: KindFluxVersion,
-			GitHub: GitHubConfig{
-				User:   DefaultGithubUser,
-				Branch: DefaultGithubBranch,
-				Repo:   "ssh://git@github.com/" + DefaultGithubUser + "/" + DefaultGithubRepo,
-			},
+			KeyPath:   fluxcdKey,
+			Version:   KindFluxVersion,
 			Namespace: FluxNamespace,
 		},
 	}

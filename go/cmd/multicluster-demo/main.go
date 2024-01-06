@@ -14,7 +14,6 @@ import (
 )
 
 var requiredVars = []string{
-	"K8S_MULTI_KUBECONFIG",
 	"AWS_B64ENCODED_CREDENTIALS",
 	"FLUXCD_KEY_PATH",
 }

@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -30,12 +29,13 @@ import (
 type FluxCD struct {
 	log           logr.Logger
 	fluxConfig    appconfig.FluxConfig
+	githubConfig  appconfig.GithubConfig
 	clusterAuth   k8sclient.CluserAuthInfo
 	runtimeClient runtimeclient.Client
 }
 
 // NewFluxCD creates a new FluxCD with the provided configurations
-func NewFluxCD(log logr.Logger, fluxConfig appconfig.FluxConfig, clusterAuth *k8sclient.CluserAuthInfo) (*FluxCD, error) {
+func NewFluxCD(log logr.Logger, fluxConfig appconfig.FluxConfig, githubConfig appconfig.GithubConfig, clusterAuth *k8sclient.CluserAuthInfo) (*FluxCD, error) {
 	// Add Flux resource to scheme to the runtime scheme. Fixes this runtime error:
 	// `failed to create GitRepository: no kind is registered for the type v1beta1.GitRepository in scheme "pkg/runtime/scheme.go:100"`
 	runtimeScheme := runtime.NewScheme()
@@ -52,11 +52,13 @@ func NewFluxCD(log logr.Logger, fluxConfig appconfig.FluxConfig, clusterAuth *k8
 	if err != nil {
 		return nil, fmt.Errorf("error creating client: %s", err)
 	}
+
 	return &FluxCD{
 		log:           log,
 		fluxConfig:    fluxConfig,
 		clusterAuth:   *clusterAuth,
 		runtimeClient: runtimeClient,
+		githubConfig:  githubConfig,
 	}, nil
 }
 
@@ -108,9 +110,9 @@ func (f *FluxCD) createGitRepository() error {
 		},
 		Spec: sourcev1.GitRepositorySpec{
 			Interval: metav1.Duration{Duration: 2 * time.Minute},
-			URL:      f.fluxConfig.GitHub.Repo,
+			URL:      f.githubConfig.URL,
 			Reference: &sourcev1.GitRepositoryRef{
-				Branch: f.fluxConfig.GitHub.Branch,
+				Branch: f.githubConfig.Branch,
 			},
 			SecretRef: &meta.LocalObjectReference{
 				Name: "flux-system",
@@ -216,7 +218,7 @@ func (f *FluxCD) SuspendKustomization(name string) error {
 
 	// Fetch the Kustomization
 	kustomization := &kustomizev1.Kustomization{}
-	if err := f.runtimeClient.Get(context.TODO(), client.ObjectKey{
+	if err := f.runtimeClient.Get(context.TODO(), runtimeclient.ObjectKey{
 		Name:      name,
 		Namespace: f.fluxConfig.Namespace,
 	}, kustomization); err != nil {
@@ -229,7 +231,7 @@ func (f *FluxCD) SuspendKustomization(name string) error {
 		return fmt.Errorf("failed to suspend kustomization: %w", err)
 	}
 
-	f.log.Info("Suspended kustomization", name, "in namespace", f.fluxConfig.Namespace)
+	f.log.Info("Suspended kustomization", "name", name, "namespace", f.fluxConfig.Namespace)
 
 	return nil
 }

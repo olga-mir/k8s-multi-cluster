@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	capiclient "sigs.k8s.io/cluster-api/cmd/clusterctl/client"
@@ -149,18 +150,6 @@ func (c *ClusterAPI) waitForClusterProvisioning(clusterName, namespace string) e
 	}
 }
 
-func (c *ClusterAPI) WaitForAllClustersProvisioning() {
-	// TODO
-
-	/*
-		clusterNamespaces, err := utils.ListAllNamespacesWithPrefix(kubeClients.TempManagementCluster.Clientset, "cluster")
-		if err != nil {
-			return fmt.Errorf("error listing namespaces with prefix 'cluster': %v", err)
-		}
-		log.Info("Cluster namespaces: ", "namespaces", clusterNamespaces)
-	*/
-}
-
 func (c *ClusterAPI) WaitForClusterDeletion(clusterName, namespace string) error {
 	timeout := 15 * time.Minute
 	c.log.Info("Waiting for cluster to be deleted", "cluster", clusterName, "namespace", namespace)
@@ -186,7 +175,9 @@ func (c *ClusterAPI) WaitForClusterDeletion(clusterName, namespace string) error
 	}
 }
 
-func (c *ClusterAPI) GetKubeconfig(workloadClusterName string) error {
+// GetClusterAuthInfo returns the clientset and rest.Config for the workload cluster.
+// It also updates the kubeconfig with the worklaod cluster config. (TODO - this feels like a side effect, is there a better way to do this?)
+func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, authInfo *k8sclient.CluserAuthInfo) error {
 	getKubeconfigOptions := capiclient.GetKubeconfigOptions{
 		Namespace:           workloadClusterName,
 		WorkloadClusterName: workloadClusterName,
@@ -196,17 +187,34 @@ func (c *ClusterAPI) GetKubeconfig(workloadClusterName string) error {
 		},
 	}
 
+	// Get the kubeconfig for the workload cluster
 	workloadKubeconfig, err := c.clusterctlClient.GetKubeconfig(context.TODO(), getKubeconfigOptions)
 	if err != nil {
 		c.log.Error(err, "Failed to get kubeconfig")
 		return err
 	}
 
+	// Create a rest.Config object from the kubeconfig
+	restConfig, err := clientcmd.RESTConfigFromKubeConfig([]byte(workloadKubeconfig))
+	if err != nil {
+		c.log.Error(err, "Failed to create rest.Config from kubeconfig")
+		return err
+	}
+
+	// Create a Clientset from the rest.Config
+	clientset, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		c.log.Error(err, "Failed to create clientset from rest.Config")
+		return err
+	}
+
+	authInfo.Clientset = clientset
+	authInfo.Config = restConfig
+
 	err = c.mergeKubeconfigs(workloadKubeconfig, c.kubeconfigPath)
 	if err != nil {
 		fmt.Printf("Error merging kubeconfig files: %s\n", err)
 	}
-
 	return nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
@@ -142,46 +143,6 @@ func isResourceReady(dynamicClient dynamic.Interface, namespace string, gvr sche
 	return true, nil
 }
 
-/*
-func waitForResourceReady1(restConfig *rest.Config, namespace string, gvr schema.GroupVersionResource) error {
-	dynamicClient, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create dynamic client: %w", err)
-	}
-
-	// Use the provided gvr for listing resources
-	resources, err := dynamicClient.Resource(gvr).Namespace(namespace).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list resources for %s: %w", gvr.Resource, err)
-	}
-
-	for _, resource := range resources.Items {
-		conditions, found, err := unstructured.NestedSlice(resource.Object, "status", "conditions")
-		if err != nil || !found {
-			continue // Skip resources without status conditions
-		}
-
-		ready := false
-		for _, cond := range conditions {
-			condition, ok := cond.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			if condition["type"] == "Ready" && condition["status"] == "True" {
-				ready = true
-				break
-			}
-		}
-
-		if !ready {
-			return fmt.Errorf("resource %s/%s is not ready", gvr.Resource, resource.GetName())
-		}
-	}
-
-	return nil
-}
-*/
-
 // ApplyManifestsFile applies all manifests in a provided file
 func ApplyManifestsFile(dynamicClient dynamic.Interface, manifestFile string) error {
 	fileData, err := os.ReadFile(manifestFile)
@@ -300,4 +261,23 @@ func GetCurrentContextName(config *rest.Config, kubeconfigPath string) (string, 
 	}
 
 	return currentContext, nil
+}
+
+type ClusterNameData struct {
+	Name string
+}
+
+// GetCAPIClusterCtxName generates a CAPI cluster context name using a template and data.
+func GetCAPIClusterCtxName(templateStr string, data ClusterNameData) (string, error) {
+	t, err := template.New("clustername").Parse(templateStr)
+	if err != nil {
+		return "", err
+	}
+
+	var tpl bytes.Buffer
+	if err := t.Execute(&tpl, data); err != nil {
+		return "", err
+	}
+
+	return tpl.String(), nil
 }
