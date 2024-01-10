@@ -83,7 +83,7 @@ func (f *FluxCD) InstallFluxCD() error {
 		return err
 	}
 
-	f.createFluxSystemSecret()
+	f.CreateFluxSystemSecret()
 
 	if err := f.createGitRepository(); err != nil {
 		log.Fatalf("Error creating GitRepository: %s", err)
@@ -149,7 +149,7 @@ func (f *FluxCD) createKustomization() error {
 	return nil
 }
 
-func (f *FluxCD) createFluxSystemSecret() {
+func (f *FluxCD) CreateFluxSystemSecret() {
 	secretData := make(map[string][]byte)
 
 	key, err := os.ReadFile(f.fluxConfig.KeyPath)

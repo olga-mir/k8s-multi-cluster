@@ -32,7 +32,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 
 	// TODO - naming. kindClusterConfig is the user config found in config.yaml + defaults
 	// it contains info about flux install for example.
-	kindClusterConfig := config.KindClusterConfig(config.DefaultKindClusterName)
+	kindClusterConfig := config.GetKindClusterConfig(config.DefaultKindClusterName)
 
 	kindConfig, err := k8sclient.GetKubernetesClient(cfg.KubeconfigPath, "kind-"+config.DefaultKindClusterName)
 	if err != nil {
@@ -120,12 +120,22 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	if err := mgmtCAPI.InstallClusterAPI(); err != nil {
 		return fmt.Errorf("error installing Cluster API: %v", err)
 	}
-	log.Info("Finished installing Cluster API on permanent management cluster")
 
 	// Pivot to the permanent management cluster
-	if err := tmpMgmtCAPI.PivotCluster(kubeClients.PermManagementCluster); err != nil {
+	if err := tmpMgmtCAPI.PivotCluster(kubeClients.PermManagementCluster, permMgmtClusterCtxName); err != nil {
 		return fmt.Errorf("error pivoting to permanent cluster: %v", err)
 	}
+
+	// Flux is installed on the permanent management cluster by GitOps magic that runs on temp mgmt cluster
+	// But we need to provide the secret for Flux to access the repository.
+	log.Info("Creating FluxCD instance for permanent management cluster")
+	permMgmtClusterConfig := config.GetKindClusterConfig(permMgmtClusterName)
+	permMgmtFluxCD, err := fluxcd.NewFluxCD(log, permMgmtClusterConfig.Flux, cfg.Github, kubeClients.TempManagementCluster)
+	if err != nil {
+		return fmt.Errorf("error creating FluxCD client: %v", err)
+	}
+
+	permMgmtFluxCD.CreateFluxSystemSecret()
 
 	return nil
 }

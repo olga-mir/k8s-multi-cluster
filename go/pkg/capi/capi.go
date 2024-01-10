@@ -240,10 +240,12 @@ func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, authInfo *k8
 	return nil
 }
 
-func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo) error {
+// TODO. ContextName should be part of clusterAuth
+func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo, toContextName string) error {
+	c.log.Info("Pivoting management cluster", "fromContextName", c.contextName, "toContextName", toContextName)
 	moveOptions := capiclient.MoveOptions{
 		FromKubeconfig: capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.contextName},
-		ToKubeconfig:   capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: "cluster-mgmt-admin@cluster-mgmt"}, // TODO - context name
+		ToKubeconfig:   capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: toContextName},
 	}
 
 	// Perform the move
