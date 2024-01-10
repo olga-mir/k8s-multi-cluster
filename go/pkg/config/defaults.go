@@ -18,8 +18,9 @@ const (
 	//           cluster-mgmt-admin@cluster-mgmt   cluster-mgmt    cluster-mgmt-admin
 	//           kind-tmp-mgmt                     kind-tmp-mgmt   kind-tmp-mgmt
 	DefaultKindClusterName    = "tmp-mgmt"
+	DefaultKindClusterCtxName = "kind-tmp-mgmt"
 	DefaultCAPIClusterNameTpl = "cluster-{{.Name}}"
-	DefaultCAPIContextNameTpl = "cluster-{{.Name}}-admin@{{.Name}}"
+	DefaultCAPIContextNameTpl = "cluster-{{.Name}}-admin@cluster-{{.Name}}"
 )
 
 var ProjectNamespaces = []string{FluxNamespace, "caaph-system"} // TODO - flux namespace can be part of config (dynamic)

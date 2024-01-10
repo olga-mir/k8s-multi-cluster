@@ -9,6 +9,7 @@ import (
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/fluxcd"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/kind"
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/utils"
 )
 
 // KubernetesClients represents a collection of Kubernetes clients for different clusters.
@@ -44,10 +45,15 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 		WorkloadClusters:      make(map[string]*k8sclient.CluserAuthInfo), // Initialize the map to an empty map
 	}
 
+	permMgmtClusterName, permMgmtClusterCtxName, err := utils.GetCAPIClusterNameAndContext(utils.ClusterNameData{Name: "mgmt"})
+	if err != nil {
+		return fmt.Errorf("error getting cluster name and context: %v", err)
+	}
+
 	// Install Cluster API on the kind cluster. kind is a temporary "CAPI management cluster" which will be used to provision
 	// a cluster in the cloud which will be used as a permanent "CAPI management cluster" for the workload clusters.
 	log.Info("Installing Cluster API on `kind` cluster")
-	tmpMgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, cfg.KubeconfigPath)
+	tmpMgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, cfg.KubeconfigPath, config.DefaultKindClusterCtxName)
 	if err != nil {
 		return fmt.Errorf("error creating Cluster API client: %v", err)
 	}
@@ -89,11 +95,12 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	}
 
 	// Now FLux has applied cluster manifests from the repo and we should wait for the cluster(s) to be ready
-	tmpMgmtCAPI.WaitForClusterFullyRunning("cluster-mgmt", "cluster-mgmt")
+	tmpMgmtCAPI.WaitForClusterFullyRunning(permMgmtClusterName, permMgmtClusterName)
 
 	// After cluster is ready we need to get its kubeconfig, then suspend flux and pivot management cluster
 	// flux --kubeconfig $KUBECONFIG --context kind-kind suspend kustomization flux-system
-	err = tmpMgmtCAPI.GetClusterAuthInfo("cluster-mgmt", kubeClients.PermManagementCluster)
+	kubeClients.PermManagementCluster = &k8sclient.CluserAuthInfo{}
+	err = tmpMgmtCAPI.GetClusterAuthInfo(permMgmtClusterName, kubeClients.PermManagementCluster)
 	if err != nil {
 		return fmt.Errorf("error getting kubeconfig for cluster-mgmt: %v", err)
 	}
@@ -104,12 +111,12 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	}
 
 	// install Cluster API on permanent management cluster
-	mgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.PermManagementCluster, cfg.KubeconfigPath)
+	mgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.PermManagementCluster, cfg.KubeconfigPath, permMgmtClusterCtxName)
 	if err != nil {
 		return fmt.Errorf("error creating Cluster API client: %v", err)
 	}
 
-	log.Info("Installing Cluster API on permanent management cluster")
+	log.Info("Installing Cluster API on the permanent management cluster")
 	if err := mgmtCAPI.InstallClusterAPI(); err != nil {
 		return fmt.Errorf("error installing Cluster API: %v", err)
 	}

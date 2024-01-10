@@ -13,6 +13,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/olga-mir/k8s-multi-cluster/go/pkg/config"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -23,7 +24,6 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 // WaitAllResourcesReady waits for all specified resources to be ready in the given namespaces.
@@ -249,35 +249,33 @@ func RepoRoot() string {
 	return repoRoot
 }
 
-func GetCurrentContextName(config *rest.Config, kubeconfigPath string) (string, error) {
-	kubeconfig, err := clientcmd.LoadFromFile(kubeconfigPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to load kubeconfig file: %w", err)
-	}
-
-	currentContext := kubeconfig.CurrentContext
-	if currentContext == "" {
-		return "", fmt.Errorf("current context is not set in kubeconfig")
-	}
-
-	return currentContext, nil
-}
-
 type ClusterNameData struct {
 	Name string
 }
 
 // GetCAPIClusterCtxName generates a CAPI cluster context name using a template and data.
-func GetCAPIClusterCtxName(templateStr string, data ClusterNameData) (string, error) {
-	t, err := template.New("clustername").Parse(templateStr)
+func GetCAPIClusterNameAndContext(data ClusterNameData) (string, string, error) {
+	t, err := template.New("clustername").Parse(config.DefaultCAPIClusterNameTpl)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	var tpl bytes.Buffer
-	if err := t.Execute(&tpl, data); err != nil {
-		return "", err
+	var tplClusterName bytes.Buffer
+	if err := t.Execute(&tplClusterName, data); err != nil {
+		return "", "", err
+	}
+	clusterName := tplClusterName.String()
+
+	tCtx, err := template.New("clusterctx").Parse(config.DefaultCAPIContextNameTpl)
+	if err != nil {
+		return "", "", err
 	}
 
-	return tpl.String(), nil
+	var tplClusterCtx bytes.Buffer
+	if err := tCtx.Execute(&tplClusterCtx, data); err != nil {
+		return "", "", err
+	}
+	clusterCtx := tplClusterCtx.String()
+
+	return clusterName, clusterCtx, nil
 }

@@ -29,7 +29,15 @@ type ClusterAPI struct {
 	contextName      string
 }
 
-func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubeconfigPath string) (*ClusterAPI, error) {
+// NewClusterAPI creates a new instance of the ClusterAPI struct. This function initializes
+// the ClusterAPI with the provided logger, authentication information, kubeconfig path,
+// and context name. It returns a pointer to the newly created ClusterAPI instance and
+// an error if any issues occur during the initialization. Context name has to be provided
+// because it is not part of the authentication information stored in the clusterAuth variable
+// but clusterApi client works with kubeconfig and context name, rather than REST config or clientset
+// Context name is an arbitrary name given to a context inside kubeconfig file. At this stage
+// of CAPI cluster the context for a cluster may not even exist yet in the kubeconfig
+func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubeconfigPath string, contextName string) (*ClusterAPI, error) {
 	runtimeScheme := runtime.NewScheme()
 	clusterv1.AddToScheme(runtimeScheme)
 
@@ -56,7 +64,7 @@ func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubec
 	}
 
 	// Get the current context name from the rest.Config
-	contextName, err := utils.GetCurrentContextName(clusterAuth.Config, kubeconfigPath)
+	log.Info("Creating Cluster API clients for kube context", "name", contextName)
 	if err != nil {
 		return nil, fmt.Errorf("error getting current context name: %w", err)
 	}
@@ -88,7 +96,7 @@ func (c *ClusterAPI) InstallClusterAPI() error {
 }
 
 func (c *ClusterAPI) WaitForClusterFullyRunning(clusterName, namespace string) error {
-	c.log.Info("Wating for CAPI cluster to be provisioned and all system components healthy")
+	c.log.Info("Wating for CAPI cluster to be provisioned and all system components healthy", "cluster", clusterName)
 	err := c.waitForClusterProvisioning(clusterName, namespace)
 	if err != nil {
 		return fmt.Errorf("error waiting for cluster provisioning: %w", err)
@@ -111,18 +119,31 @@ func (c *ClusterAPI) WaitForClusterFullyRunning(clusterName, namespace string) e
 		{Group: "addons.cluster.x-k8s.io", Version: "v1", Resource: "helmchartproxies"},
 		{Group: "addons.cluster.x-k8s.io", Version: "v1", Resource: "helmreleaseproxies"},
 	}
+	c.log.Info("Wait for CAAPH resources to be Ready")
 	namespaces := []string{}
-	err = utils.WaitAllResourcesReady(*c.clusterAuth, namespaces, caaphGVRs)
+	err = utils.WaitAllResourcesReady(*c.clusterAuth, namespaces, caaphGVRs) // TODO - is this blocking?
 	if err != nil {
 		return fmt.Errorf("error waiting for CAAPH resources to be ready: %w", err)
 	}
+	c.log.Info("All CAAPH resources are ready") // TODO - why this line is never printed?
 
 	return nil
 }
 
+// waitForClusterProvisioning blocks until the specified cluster reaches the 'Provisioned' state.
+// This function specifically checks the status of the Cluster API custom resource named 'clusterName'
+// within the given 'namespace'. It's important to note that reaching the 'Provisioned' state does not
+// necessarily mean the cluster is fully operational and ready for use. Key components, such as the CNI,
+// might still be in the process of becoming ready. Therefore, additional checks should be performed
+// after this function returns to ensure that all critical components of the cluster are functional.
+//
+// Parameters:
+//
+//	clusterName: The name of the cluster as defined in the Cluster API custom resource.
+//	namespace:   The Kubernetes namespace in which the cluster resource resides.
 func (c *ClusterAPI) waitForClusterProvisioning(clusterName, namespace string) error {
 	timeout := 15 * time.Minute
-	c.log.Info("Waiting for cluster to be provisioned", "cluster", clusterName, "namespace", namespace)
+	c.log.Info("Waiting for cluster Cluster API custom resource to be 'Provisioned'", "cluster", clusterName, "namespace", namespace)
 
 	// Define the timeout for the wait operation
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -186,6 +207,7 @@ func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, authInfo *k8
 			Context: c.contextName,
 		},
 	}
+	c.log.Info("GetClusterAuthInfo for workload cluster", "name", workloadClusterName, "options", getKubeconfigOptions)
 
 	// Get the kubeconfig for the workload cluster
 	workloadKubeconfig, err := c.clusterctlClient.GetKubeconfig(context.TODO(), getKubeconfigOptions)
