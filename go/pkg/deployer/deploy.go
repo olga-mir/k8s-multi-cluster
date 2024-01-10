@@ -34,7 +34,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	// it contains info about flux install for example.
 	kindClusterConfig := config.GetKindClusterConfig(config.DefaultKindClusterName)
 
-	kindConfig, err := k8sclient.GetKubernetesClient(cfg.KubeconfigPath, "kind-"+config.DefaultKindClusterName)
+	kindConfig, err := k8sclient.GetKubernetesClient(cfg.KubeconfigPath, config.DefaultKindClusterCtxName)
 	if err != nil {
 		return fmt.Errorf("failed to create Kubernetes client for kind cluster: %v", err)
 	}
@@ -53,7 +53,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	// Install Cluster API on the kind cluster. kind is a temporary "CAPI management cluster" which will be used to provision
 	// a cluster in the cloud which will be used as a permanent "CAPI management cluster" for the workload clusters.
 	log.Info("Installing Cluster API on `kind` cluster")
-	tmpMgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, cfg.KubeconfigPath, config.DefaultKindClusterCtxName)
+	tmpMgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.TempManagementCluster, cfg.KubeconfigPath)
 	if err != nil {
 		return fmt.Errorf("error creating Cluster API client: %v", err)
 	}
@@ -100,7 +100,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	// After cluster is ready we need to get its kubeconfig, then suspend flux and pivot management cluster
 	// flux --kubeconfig $KUBECONFIG --context kind-kind suspend kustomization flux-system
 	kubeClients.PermManagementCluster = &k8sclient.CluserAuthInfo{}
-	err = tmpMgmtCAPI.GetClusterAuthInfo(permMgmtClusterName, kubeClients.PermManagementCluster)
+	err = tmpMgmtCAPI.GetClusterAuthInfo(permMgmtClusterName, permMgmtClusterCtxName, kubeClients.PermManagementCluster)
 	if err != nil {
 		return fmt.Errorf("error getting kubeconfig for cluster-mgmt: %v", err)
 	}
@@ -111,7 +111,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	}
 
 	// install Cluster API on permanent management cluster
-	mgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.PermManagementCluster, cfg.KubeconfigPath, permMgmtClusterCtxName)
+	mgmtCAPI, err := capi.NewClusterAPI(log, kubeClients.PermManagementCluster, cfg.KubeconfigPath)
 	if err != nil {
 		return fmt.Errorf("error creating Cluster API client: %v", err)
 	}
@@ -122,7 +122,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	}
 
 	// Pivot to the permanent management cluster
-	if err := tmpMgmtCAPI.PivotCluster(kubeClients.PermManagementCluster, permMgmtClusterCtxName); err != nil {
+	if err := tmpMgmtCAPI.PivotCluster(kubeClients.PermManagementCluster); err != nil {
 		return fmt.Errorf("error pivoting to permanent cluster: %v", err)
 	}
 
@@ -130,12 +130,18 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	// But we need to provide the secret for Flux to access the repository.
 	log.Info("Creating FluxCD instance for permanent management cluster")
 	permMgmtClusterConfig := config.GetKindClusterConfig(permMgmtClusterName)
-	permMgmtFluxCD, err := fluxcd.NewFluxCD(log, permMgmtClusterConfig.Flux, cfg.Github, kubeClients.TempManagementCluster)
+	permMgmtFluxCD, err := fluxcd.NewFluxCD(log, permMgmtClusterConfig.Flux, cfg.Github, kubeClients.PermManagementCluster)
 	if err != nil {
 		return fmt.Errorf("error creating FluxCD client: %v", err)
 	}
 
-	permMgmtFluxCD.CreateFluxSystemSecret()
+	if err := permMgmtFluxCD.CreateFluxSystemSecret(); err != nil {
+		return fmt.Errorf("error creating FluxCD secret: %v", err)
+	}
+
+	if err := mgmtCAPI.WaitForAllClustersProvisioning(); err != nil {
+		fmt.Printf("Error waiting for clusters to be provisioned: %s\n", err)
+	}
 
 	return nil
 }

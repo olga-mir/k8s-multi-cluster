@@ -42,8 +42,8 @@ nodes:
 	cmd := exec.Command("kind", "create", "cluster", "--name", clusterName, "--config", kindConfig.Name(), "--kubeconfig", kubeconfigPath)
 
 	// Stream the output to os.Stdout and os.Stderr
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// cmd.Stdout = os.Stdout
+	// cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to create kind cluster: %w", err)

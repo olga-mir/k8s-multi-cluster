@@ -9,8 +9,9 @@ import (
 // CluserAuthInfo is a struct that contains a Kubernetes clientset and a Kubernetes config.
 // in somecases we can't use clientset and have to pass REST Config, e.g. in InitClusterAPI
 type CluserAuthInfo struct {
-	Clientset *kubernetes.Clientset
-	Config    *rest.Config
+	Clientset   *kubernetes.Clientset
+	Config      *rest.Config
+	ContextName string
 }
 
 func GetKubernetesClient(kubeconfigPath string, context string) (*CluserAuthInfo, error) {
@@ -30,5 +31,5 @@ func GetKubernetesClient(kubeconfigPath string, context string) (*CluserAuthInfo
 		return nil, err
 	}
 
-	return &CluserAuthInfo{Clientset: clientset, Config: restConfig}, nil
+	return &CluserAuthInfo{Clientset: clientset, Config: restConfig, ContextName: context}, nil
 }

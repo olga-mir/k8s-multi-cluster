@@ -3,6 +3,7 @@ package capi
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -26,7 +27,6 @@ type ClusterAPI struct {
 	runtimeClient    runtimeclient.Client
 	clusterctlClient capiclient.Client
 	kubeconfigPath   string
-	contextName      string
 }
 
 // NewClusterAPI creates a new instance of the ClusterAPI struct. This function initializes
@@ -37,7 +37,7 @@ type ClusterAPI struct {
 // but clusterApi client works with kubeconfig and context name, rather than REST config or clientset
 // Context name is an arbitrary name given to a context inside kubeconfig file. At this stage
 // of CAPI cluster the context for a cluster may not even exist yet in the kubeconfig
-func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubeconfigPath string, contextName string) (*ClusterAPI, error) {
+func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubeconfigPath string) (*ClusterAPI, error) {
 	runtimeScheme := runtime.NewScheme()
 	clusterv1.AddToScheme(runtimeScheme)
 
@@ -64,7 +64,7 @@ func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubec
 	}
 
 	// Get the current context name from the rest.Config
-	log.Info("Creating Cluster API clients for kube context", "name", contextName)
+	log.Info("Creating Cluster API clients for kube context", "name", clusterAuth.ContextName)
 	if err != nil {
 		return nil, fmt.Errorf("error getting current context name: %w", err)
 	}
@@ -75,7 +75,6 @@ func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubec
 		runtimeClient:    runtimeClient,
 		clusterctlClient: clusterctlClient,
 		kubeconfigPath:   kubeconfigPath,
-		contextName:      contextName,
 	}, nil
 }
 
@@ -83,7 +82,7 @@ func (c *ClusterAPI) InstallClusterAPI() error {
 	// Create a clusterctl client
 
 	initOptions := capiclient.InitOptions{
-		Kubeconfig:              capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.contextName},
+		Kubeconfig:              capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.clusterAuth.ContextName},
 		InfrastructureProviders: []string{"aws:v2.3.1"},
 	}
 
@@ -171,6 +170,40 @@ func (c *ClusterAPI) waitForClusterProvisioning(clusterName, namespace string) e
 	}
 }
 
+func (c *ClusterAPI) WaitForAllClustersProvisioning() error {
+	namespaces, err := utils.ListAllNamespacesWithPrefix(c.clusterAuth.Clientset, "cluster-")
+	if err != nil {
+		return fmt.Errorf("failed to list all namespaces: %w", err)
+	}
+
+	var wg sync.WaitGroup
+	errors := make(chan error, len(namespaces))
+
+	for _, ns := range namespaces {
+		wg.Add(1)
+		go func(namespace string) {
+			defer wg.Done()
+			// TODO - need to rework the cluster/namespace relashionship later.
+			//  One namespace should allow more than 1 cluster
+			if err := c.waitForClusterProvisioning(namespace, namespace); err != nil {
+				errors <- fmt.Errorf("error in namespace %s: %w", namespace, err)
+			}
+		}(ns)
+	}
+
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(errors)
+
+	// Check for errors
+	for err := range errors {
+		if err != nil {
+			return err // Return on the first error encountered
+		}
+	}
+	return nil
+}
+
 func (c *ClusterAPI) WaitForClusterDeletion(clusterName, namespace string) error {
 	timeout := 15 * time.Minute
 	c.log.Info("Waiting for cluster to be deleted", "cluster", clusterName, "namespace", namespace)
@@ -198,13 +231,14 @@ func (c *ClusterAPI) WaitForClusterDeletion(clusterName, namespace string) error
 
 // GetClusterAuthInfo returns the clientset and rest.Config for the workload cluster.
 // It also updates the kubeconfig with the worklaod cluster config. (TODO - this feels like a side effect, is there a better way to do this?)
-func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, authInfo *k8sclient.CluserAuthInfo) error {
+func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, workloadClusterCtxName string, authInfo *k8sclient.CluserAuthInfo) error {
 	getKubeconfigOptions := capiclient.GetKubeconfigOptions{
 		Namespace:           workloadClusterName,
 		WorkloadClusterName: workloadClusterName,
 		Kubeconfig: capiclient.Kubeconfig{
-			Path:    c.kubeconfigPath,
-			Context: c.contextName,
+			Path: c.kubeconfigPath,
+			// This is the context name of "this" cluster (the one which is currently acting as a management cluster for the given workload cluster)
+			Context: c.clusterAuth.ContextName,
 		},
 	}
 	c.log.Info("GetClusterAuthInfo for workload cluster", "name", workloadClusterName, "options", getKubeconfigOptions)
@@ -232,6 +266,7 @@ func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, authInfo *k8
 
 	authInfo.Clientset = clientset
 	authInfo.Config = restConfig
+	authInfo.ContextName = workloadClusterCtxName
 
 	err = c.mergeKubeconfigs(workloadKubeconfig, c.kubeconfigPath)
 	if err != nil {
@@ -241,11 +276,11 @@ func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, authInfo *k8
 }
 
 // TODO. ContextName should be part of clusterAuth
-func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo, toContextName string) error {
-	c.log.Info("Pivoting management cluster", "fromContextName", c.contextName, "toContextName", toContextName)
+func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo) error {
+	c.log.Info("Pivoting management cluster", "fromContextName", c.clusterAuth.ContextName, "toContextName", permClusterAuth.ContextName)
 	moveOptions := capiclient.MoveOptions{
-		FromKubeconfig: capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.contextName},
-		ToKubeconfig:   capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: toContextName},
+		FromKubeconfig: capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.clusterAuth.ContextName},
+		ToKubeconfig:   capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: permClusterAuth.ContextName},
 	}
 
 	// Perform the move

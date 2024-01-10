@@ -149,7 +149,8 @@ func (f *FluxCD) createKustomization() error {
 	return nil
 }
 
-func (f *FluxCD) CreateFluxSystemSecret() {
+func (f *FluxCD) CreateFluxSystemSecret() error {
+	f.log.Info("Creating secret for Flux")
 	secretData := make(map[string][]byte)
 
 	key, err := os.ReadFile(f.fluxConfig.KeyPath)
@@ -176,10 +177,10 @@ func (f *FluxCD) CreateFluxSystemSecret() {
 
 	_, err = f.clusterAuth.Clientset.CoreV1().Secrets(f.fluxConfig.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err != nil {
-		f.log.Error(err, "Error creating secret")
+		return fmt.Errorf("error creating secret: %s", err)
 	}
 
-	f.log.Info("Successfully created FluxCD secret")
+	return nil
 }
 
 func (f *FluxCD) WaitForFluxResources() error {
