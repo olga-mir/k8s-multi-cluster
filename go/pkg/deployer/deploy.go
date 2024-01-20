@@ -30,10 +30,6 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 		return fmt.Errorf("error creating kind cluster: %v", err)
 	}
 
-	// TODO - naming. kindClusterConfig is the user config found in config.yaml + defaults
-	// it contains info about flux install for example.
-	kindClusterConfig := config.GetKindClusterConfig(config.DefaultKindClusterName)
-
 	kindConfig, err := k8sclient.GetKubernetesClient(cfg.KubeconfigPath, config.DefaultKindClusterCtxName)
 	if err != nil {
 		return fmt.Errorf("failed to create Kubernetes client for kind cluster: %v", err)
@@ -64,7 +60,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 
 	// Install FluxCD on the kind cluster
 	log.Info("Installing FluxCD on `kind` cluster")
-	kindFluxCD, err := fluxcd.NewFluxCD(log, kindClusterConfig.Flux, cfg.Github, kubeClients.TempManagementCluster)
+	kindFluxCD, err := fluxcd.NewFluxCD(log, clusterConfigByName(config.DefaultKindClusterName, cfg).Flux, cfg.Github, kubeClients.TempManagementCluster)
 	if err != nil {
 		return fmt.Errorf("error creating FluxCD client: %v", err)
 	}
@@ -129,8 +125,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	// Flux is installed on the permanent management cluster by GitOps magic that runs on temp mgmt cluster
 	// But we need to provide the secret for Flux to access the repository.
 	log.Info("Creating FluxCD instance for permanent management cluster")
-	permMgmtClusterConfig := config.GetKindClusterConfig(permMgmtClusterName)
-	permMgmtFluxCD, err := fluxcd.NewFluxCD(log, permMgmtClusterConfig.Flux, cfg.Github, kubeClients.PermManagementCluster)
+	permMgmtFluxCD, err := fluxcd.NewFluxCD(log, clusterConfigByName(permMgmtClusterName, cfg).Flux, cfg.Github, kubeClients.PermManagementCluster)
 	if err != nil {
 		return fmt.Errorf("error creating FluxCD client: %v", err)
 	}
@@ -143,6 +138,19 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 		fmt.Printf("Error waiting for clusters to be provisioned: %s\n", err)
 	}
 
+	return nil
+}
+
+// TODO - this is a temp function. Need to re-think config.yaml
+// so that it allows immutable cluster upgrades and what are the cluster names really mean
+// cluster-01 and cluster-02 are they peers (e.g. HA design or clusters by function that need to be in multi cluster mesh
+// or are they a b/g version during the cluster upgrade flow)
+func clusterConfigByName(name string, cfg *config.Config) *config.ClusterConfig {
+	for _, cluster := range cfg.Clusters {
+		if cluster.Name == name {
+			return &cluster
+		}
+	}
 	return nil
 }
 

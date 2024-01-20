@@ -5,7 +5,7 @@ clusters:
     podCIDR: "192.168.0.0/20"
     managementCluster: ""
     flux:
-      keyPath: "TODO"
+      keyPath: "$HOME/.ssh/flux-github-key-2"
       version: "2.2.2"
     cni:
       name: "cilium"
@@ -20,7 +20,7 @@ clusters:
     podCIDR: "192.168.16.0/20"
     managementCluster: "cluster-mgmt"
     flux:
-      keyPath: "TODO"
+      keyPath: "$HOME/.ssh/flux-github-key-2"
       version: "2.2.2"
     cni:
       name: "cilium"

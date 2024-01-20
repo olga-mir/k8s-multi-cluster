@@ -1,9 +1,5 @@
 package config
 
-import (
-	"os"
-)
-
 const (
 	KindFluxVersion = "2.2.2"
 	FluxNamespace   = "flux-system"
@@ -23,28 +19,7 @@ const (
 	DefaultCAPIContextNameTpl = "cluster-{{.Name}}-admin@cluster-{{.Name}}"
 )
 
-var ProjectNamespaces = []string{FluxNamespace, "caaph-system"} // TODO - flux namespace can be part of config (dynamic)
-
-// KindClusterConfig provides a default configuration for a kind cluster.
-func GetKindClusterConfig(clusterName string) ClusterConfig {
-	fluxcdKey := os.Getenv("FLUXCD_KEY_PATH")
-	if fluxcdKey == "" {
-		// TODO - for now all clusters will share the same key.
-		// TODO - change function so that we don't have to panic here
-		panic("FLUXCD_KEY_PATH environment variable is not set")
-	}
-
-	return ClusterConfig{
-		Name:              clusterName,
-		Provider:          "kind",
-		ManagementCluster: "",
-		Flux: FluxConfig{
-			KeyPath:   fluxcdKey,
-			Version:   KindFluxVersion,
-			Namespace: FluxNamespace,
-		},
-	}
-}
+var ProjectNamespaces = []string{FluxNamespace, "caaph-system"}
 
 // TODO - this is a terrible terrible name. "ClusterConfig" here comes from the
 // config of this app, but this misleading because CAPI client also has a config file
@@ -53,7 +28,7 @@ func GetKindClusterConfig(clusterName string) ClusterConfig {
 func GetCapiClusterConfig(clusterName string) ClusterConfig {
 	return ClusterConfig{
 		Name:              clusterName,
-		Provider:          "capi", // iirc this is to distinguish if we are using CAPI or CrossPlane
+		Provider:          "capi", // CAPI, KCC or Crossplane
 		ManagementCluster: "",
 		Flux: FluxConfig{
 			Version:   KindFluxVersion, // TODO - don't care now, can be the same version

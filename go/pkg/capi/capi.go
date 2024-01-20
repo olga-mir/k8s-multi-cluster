@@ -275,12 +275,12 @@ func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, workloadClus
 	return nil
 }
 
-// TODO. ContextName should be part of clusterAuth
 func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo) error {
 	c.log.Info("Pivoting management cluster", "fromContextName", c.clusterAuth.ContextName, "toContextName", permClusterAuth.ContextName)
 	moveOptions := capiclient.MoveOptions{
 		FromKubeconfig: capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.clusterAuth.ContextName},
 		ToKubeconfig:   capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: permClusterAuth.ContextName},
+		Namespace:      "cluster-mgmt", // TODO - hardcoded name
 	}
 
 	// Perform the move
