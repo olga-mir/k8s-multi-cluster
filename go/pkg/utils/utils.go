@@ -17,6 +17,7 @@ import (
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -24,17 +25,16 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
+// TODO - rework utils to receiver methods
+
 // WaitAllResourcesReady waits for all specified resources to be ready in the given namespaces.
-func WaitAllResourcesReady(clusterAuth k8sclient.CluserAuthInfo, namespaces []string, gvr []schema.GroupVersionResource) error {
+// If namespaces array is empty the function returns immediatelly
+func WaitAllResourcesReady(clusterAuth k8sclient.ClusterAuthInfo, namespaces []string, gvr []schema.GroupVersionResource) error {
 	if len(namespaces) == 0 {
-		// If no namespaces are provided, use a function to list all namespaces
-		var err error
-		namespaces, err = ListAllNamespacesWithPrefix(clusterAuth.Clientset, "")
-		if err != nil {
-			return fmt.Errorf("failed to list all namespaces: %w", err)
-		}
+		return nil
 	}
 
 	var wg sync.WaitGroup
@@ -69,6 +69,7 @@ func WaitAllResourcesReady(clusterAuth k8sclient.CluserAuthInfo, namespaces []st
 func ListAllNamespacesWithPrefix(k8sClient *kubernetes.Clientset, prefix string) ([]string, error) {
 	namespaceList, err := k8sClient.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
+		// TODO - is it better to just panic here to minimise a little the if-err hell?
 		return nil, fmt.Errorf("failed to list namespaces: %w", err)
 	}
 
@@ -97,7 +98,7 @@ func waitForResourceReady(restConfig *rest.Config, namespace string, resource sc
 
 	for {
 		select {
-		case <-time.After(time.Until(deadline)):
+		case <-time.After(time.Until(deadline)): // TODO - "case <-timeout"?
 			return fmt.Errorf("timeout waiting for resource %s in namespace %s to be ready", resource.Resource, namespace)
 
 		case <-ticker.C:
@@ -141,6 +142,25 @@ func isResourceReady(dynamicClient dynamic.Interface, namespace string, gvr sche
 		}
 	}
 	return true, nil
+}
+
+func ResourcesExist(restConfig *rest.Config, namespace string, resourceName string, gvr schema.GroupVersionResource) (bool, error) {
+	// TODO - signature inconsistent with above function, but this can be solved later with creating a reciver object for utils.
+	dynamicClient, err := dynamic.NewForConfig(restConfig)
+	if err != nil {
+		return false, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	_, err = dynamicClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), resourceName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, nil // Resource does not exist
+		}
+		// For other errors, return them
+		return false, fmt.Errorf("error: %w", err)
+	}
+	return true, nil
+
 }
 
 // ApplyManifestsFile applies all manifests in a provided file
@@ -278,4 +298,40 @@ func GetCAPIClusterNameAndContext(data ClusterNameData) (string, string, error) 
 	clusterCtx := tplClusterCtx.String()
 
 	return clusterName, clusterCtx, nil
+}
+
+// mergeKubeconfigs merges the content of srcKubeconfig into dstKubeconfigPath.
+// srcKubeconfig is a kubeconfig file in a string form
+// dstKubeconfigPath is the path to the destination kubeconfig file, which already contains other content.
+// TODO - this should not be a ClusterAPI method
+func MergeKubeconfigs(srcKubeconfig, dstKubeconfigPath string) error {
+	// Load the destination kubeconfig
+	dstConfig, err := clientcmd.LoadFromFile(dstKubeconfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to load destination kubeconfig: %w", err)
+	}
+
+	// Parse the source kubeconfig from the string
+	srcConfig, err := clientcmd.Load([]byte(srcKubeconfig))
+	if err != nil {
+		return fmt.Errorf("failed to parse source kubeconfig: %w", err)
+	}
+
+	// Merge srcConfig into dstConfig
+	for key, value := range srcConfig.Clusters {
+		dstConfig.Clusters[key] = value
+	}
+	for key, value := range srcConfig.Contexts {
+		dstConfig.Contexts[key] = value
+	}
+	for key, value := range srcConfig.AuthInfos {
+		dstConfig.AuthInfos[key] = value
+	}
+
+	// Write the merged configuration back to the destination kubeconfig file
+	if err = clientcmd.WriteToFile(*dstConfig, dstKubeconfigPath); err != nil {
+		return fmt.Errorf("failed to write merged kubeconfig: %w", err)
+	}
+
+	return nil
 }

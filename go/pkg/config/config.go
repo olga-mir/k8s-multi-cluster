@@ -140,6 +140,7 @@ func ensureSafePath(pathPtr *string) error {
 }
 
 func kindClusterConfig(clusterName string) ClusterConfig {
+	// TODO - re-think implicit kind config. We shouldn't require flux key here.
 	fluxcdKey := os.Getenv("FLUXCD_KEY_PATH")
 	if fluxcdKey == "" {
 		// TODO - for now all clusters will share the same key.

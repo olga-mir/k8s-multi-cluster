@@ -9,17 +9,16 @@ import (
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/fluxcd"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/k8sclient"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/kind"
-	"github.com/olga-mir/k8s-multi-cluster/go/pkg/utils"
 )
 
 // KubernetesClients represents a collection of Kubernetes clients for different clusters.
-// CluserAuthInfo contains REST Config and clientset. Clientset can't be easily used with
+// ClusterAuthInfo contains REST Config and clientset. Clientset can't be easily used with
 // custom resources and clients used by Cluster API and FluxCD
 // TODO - review this sructure: maybe using only REST Config and building clientset dynamically when needed.
 type KubernetesClients struct {
-	TempManagementCluster *k8sclient.CluserAuthInfo            // Temporary management cluster (kind)
-	PermManagementCluster *k8sclient.CluserAuthInfo            // Permanent management cluster
-	WorkloadClusters      map[string]*k8sclient.CluserAuthInfo // Map of workload clusters
+	TempManagementCluster *k8sclient.ClusterAuthInfo            // Temporary management cluster (kind)
+	PermManagementCluster *k8sclient.ClusterAuthInfo            // Permanent management cluster
+	WorkloadClusters      map[string]*k8sclient.ClusterAuthInfo // Map of workload clusters
 }
 
 func Deploy(log logr.Logger, cfg *config.Config) error {
@@ -30,20 +29,15 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 		return fmt.Errorf("error creating kind cluster: %v", err)
 	}
 
-	kindConfig, err := k8sclient.GetKubernetesClient(cfg.KubeconfigPath, config.DefaultKindClusterCtxName)
+	kindConfig, err := k8sclient.GetKubernetesClient(cfg.KubeconfigPath, config.DefaultKindClusterCtxName, config.DefaultKindClusterName)
 	if err != nil {
 		return fmt.Errorf("failed to create Kubernetes client for kind cluster: %v", err)
 	}
 
 	kubeClients := &KubernetesClients{
 		TempManagementCluster: kindConfig,
-		PermManagementCluster: nil,                                        // Initialize to nil to indicate that the permanent cluster has not been created yet.
-		WorkloadClusters:      make(map[string]*k8sclient.CluserAuthInfo), // Initialize the map to an empty map
-	}
-
-	permMgmtClusterName, permMgmtClusterCtxName, err := utils.GetCAPIClusterNameAndContext(utils.ClusterNameData{Name: "mgmt"})
-	if err != nil {
-		return fmt.Errorf("error getting cluster name and context: %v", err)
+		PermManagementCluster: nil,                                         // Initialize to nil to indicate that the permanent cluster has not been created yet.
+		WorkloadClusters:      make(map[string]*k8sclient.ClusterAuthInfo), // Initialize the map to an empty map
 	}
 
 	// Install Cluster API on the kind cluster. kind is a temporary "CAPI management cluster" which will be used to provision
@@ -90,13 +84,12 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 		return fmt.Errorf("error waiting for Flux resources: %v", err)
 	}
 
-	// Now FLux has applied cluster manifests from the repo and we should wait for the cluster(s) to be ready
-	tmpMgmtCAPI.WaitForClusterFullyRunning(permMgmtClusterName, permMgmtClusterName)
+	// Now Flux has applied cluster manifests from the repo and we should wait for the cluster(s) to be ready
+	tmpMgmtCAPI.WaitForWorkloadClusterFullyRunning("mgmt")
 
 	// After cluster is ready we need to get its kubeconfig, then suspend flux and pivot management cluster
-	// flux --kubeconfig $KUBECONFIG --context kind-kind suspend kustomization flux-system
-	kubeClients.PermManagementCluster = &k8sclient.CluserAuthInfo{}
-	err = tmpMgmtCAPI.GetClusterAuthInfo(permMgmtClusterName, permMgmtClusterCtxName, kubeClients.PermManagementCluster)
+	kubeClients.PermManagementCluster = &k8sclient.ClusterAuthInfo{}
+	err = tmpMgmtCAPI.GetClusterAuthInfoForWorkloadCluster(kubeClients.PermManagementCluster, "mgmt")
 	if err != nil {
 		return fmt.Errorf("error getting kubeconfig for cluster-mgmt: %v", err)
 	}
@@ -125,7 +118,7 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 	// Flux is installed on the permanent management cluster by GitOps magic that runs on temp mgmt cluster
 	// But we need to provide the secret for Flux to access the repository.
 	log.Info("Creating FluxCD instance for permanent management cluster")
-	permMgmtFluxCD, err := fluxcd.NewFluxCD(log, clusterConfigByName(permMgmtClusterName, cfg).Flux, cfg.Github, kubeClients.PermManagementCluster)
+	permMgmtFluxCD, err := fluxcd.NewFluxCD(log, clusterConfigByName("cluster-mgmt", cfg).Flux, cfg.Github, kubeClients.PermManagementCluster)
 	if err != nil {
 		return fmt.Errorf("error creating FluxCD client: %v", err)
 	}

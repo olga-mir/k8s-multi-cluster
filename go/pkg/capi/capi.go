@@ -23,7 +23,7 @@ import (
 
 type ClusterAPI struct {
 	log              logr.Logger
-	clusterAuth      *k8sclient.CluserAuthInfo
+	clusterAuth      *k8sclient.ClusterAuthInfo // TODO - why is this * while in other places it is not? (e.g. flux.go)
 	runtimeClient    runtimeclient.Client
 	clusterctlClient capiclient.Client
 	kubeconfigPath   string
@@ -37,11 +37,11 @@ type ClusterAPI struct {
 // but clusterApi client works with kubeconfig and context name, rather than REST config or clientset
 // Context name is an arbitrary name given to a context inside kubeconfig file. At this stage
 // of CAPI cluster the context for a cluster may not even exist yet in the kubeconfig
-func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.CluserAuthInfo, kubeconfigPath string) (*ClusterAPI, error) {
+func NewClusterAPI(log logr.Logger, clusterAuth *k8sclient.ClusterAuthInfo, kubeconfigPath string) (*ClusterAPI, error) {
 	runtimeScheme := runtime.NewScheme()
 	clusterv1.AddToScheme(runtimeScheme)
 
-	clusterctlConfigPath := utils.RepoRoot() + "/clusters/tmp-mgmt/clusterctl.yaml"
+	clusterctlConfigPath := utils.RepoRoot() + "/clusters/" + clusterAuth.ClusterName + "/clusterctl.yaml"
 
 	clusterctlConfig, err := capiconfig.New(context.TODO(), clusterctlConfigPath)
 	if err != nil {
@@ -83,7 +83,7 @@ func (c *ClusterAPI) InstallClusterAPI() error {
 
 	initOptions := capiclient.InitOptions{
 		Kubeconfig:              capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.clusterAuth.ContextName},
-		InfrastructureProviders: []string{"aws:v2.3.1"},
+		InfrastructureProviders: []string{"aws:v2.3.1"}, // TODO - there is a bug in CAPI init file. infra provider has to be specified explicitely
 	}
 
 	// Install Cluster API components on this cluster.
@@ -94,9 +94,18 @@ func (c *ClusterAPI) InstallClusterAPI() error {
 	return nil
 }
 
-func (c *ClusterAPI) WaitForClusterFullyRunning(clusterName, namespace string) error {
-	c.log.Info("Wating for CAPI cluster to be provisioned and all system components healthy", "cluster", clusterName)
-	err := c.waitForClusterProvisioning(clusterName, namespace)
+func (c *ClusterAPI) WaitForWorkloadClusterFullyRunning(name string) error {
+
+	// TODO - this name extraction happens twice in the cluster bootstrap.
+	// maybe a workload cluster should maintain a list of its managed clusters
+	workloadClusterName, _, err := utils.GetCAPIClusterNameAndContext(utils.ClusterNameData{Name: name})
+	if err != nil {
+		return fmt.Errorf("error getting cluster name and context: %v", err)
+	}
+
+	c.log.Info("Wating for CAPI cluster to be provisioned and all system components healthy", "cluster", workloadClusterName)
+
+	err = c.waitForCAPIClusterStateProvisioned(workloadClusterName, workloadClusterName)
 	if err != nil {
 		return fmt.Errorf("error waiting for cluster provisioning: %w", err)
 	}
@@ -104,7 +113,7 @@ func (c *ClusterAPI) WaitForClusterFullyRunning(clusterName, namespace string) e
 	// After cluster is provisioned from Cluster API standpoint, we still need to wait for the CNI and Flux
 	// being ready on the "workload" cluster, which will be permanent management cluster.
 	/*
-			% k get hrp -A
+		% k get hrp -A
 		NAMESPACE      NAME                        CLUSTER        READY   REASON   STATUS     REVISION
 		cluster-mgmt   cilium-cluster-mgmt-9w44z   cluster-mgmt   True             deployed   1
 		%
@@ -114,12 +123,19 @@ func (c *ClusterAPI) WaitForClusterFullyRunning(clusterName, namespace string) e
 		cluster-mgmt   cilium-no-mesh   True
 	*/
 
+	// TODO - these and other CRDS can be in defaults
 	caaphGVRs := []schema.GroupVersionResource{
 		{Group: "addons.cluster.x-k8s.io", Version: "v1", Resource: "helmchartproxies"},
 		{Group: "addons.cluster.x-k8s.io", Version: "v1", Resource: "helmreleaseproxies"},
 	}
+
 	c.log.Info("Wait for CAAPH resources to be Ready")
-	namespaces := []string{}
+
+	namespaces, err := utils.ListAllNamespacesWithPrefix(c.clusterAuth.Clientset, "cluster-")
+	if err != nil {
+		return fmt.Errorf("error listing all namespaces with prefix 'cluster-': %w", err)
+	}
+
 	err = utils.WaitAllResourcesReady(*c.clusterAuth, namespaces, caaphGVRs) // TODO - is this blocking?
 	if err != nil {
 		return fmt.Errorf("error waiting for CAAPH resources to be ready: %w", err)
@@ -129,22 +145,15 @@ func (c *ClusterAPI) WaitForClusterFullyRunning(clusterName, namespace string) e
 	return nil
 }
 
-// waitForClusterProvisioning blocks until the specified cluster reaches the 'Provisioned' state.
+// waitForCAPIClusterStateProvisioned blocks until the specified cluster reaches the 'Provisioned' state.
 // This function specifically checks the status of the Cluster API custom resource named 'clusterName'
 // within the given 'namespace'. It's important to note that reaching the 'Provisioned' state does not
 // necessarily mean the cluster is fully operational and ready for use. Key components, such as the CNI,
 // might still be in the process of becoming ready. Therefore, additional checks should be performed
 // after this function returns to ensure that all critical components of the cluster are functional.
-//
-// Parameters:
-//
-//	clusterName: The name of the cluster as defined in the Cluster API custom resource.
-//	namespace:   The Kubernetes namespace in which the cluster resource resides.
-func (c *ClusterAPI) waitForClusterProvisioning(clusterName, namespace string) error {
+func (c *ClusterAPI) waitForCAPIClusterStateProvisioned(clusterName, namespace string) error {
 	timeout := 15 * time.Minute
-	c.log.Info("Waiting for cluster Cluster API custom resource to be 'Provisioned'", "cluster", clusterName, "namespace", namespace)
 
-	// Define the timeout for the wait operation
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -159,13 +168,11 @@ func (c *ClusterAPI) waitForClusterProvisioning(clusterName, namespace string) e
 				return err
 			}
 
-			// Check if the cluster is provisioned
 			if cluster.Status.Phase == "Provisioned" {
 				return nil
 			}
 
-			// Sleep before the next check
-			time.Sleep(15 * time.Second)
+			time.Sleep(30 * time.Second)
 		}
 	}
 }
@@ -185,7 +192,7 @@ func (c *ClusterAPI) WaitForAllClustersProvisioning() error {
 			defer wg.Done()
 			// TODO - need to rework the cluster/namespace relashionship later.
 			//  One namespace should allow more than 1 cluster
-			if err := c.waitForClusterProvisioning(namespace, namespace); err != nil {
+			if err := c.waitForCAPIClusterStateProvisioned(namespace, namespace); err != nil {
 				errors <- fmt.Errorf("error in namespace %s: %w", namespace, err)
 			}
 		}(ns)
@@ -231,7 +238,13 @@ func (c *ClusterAPI) WaitForClusterDeletion(clusterName, namespace string) error
 
 // GetClusterAuthInfo returns the clientset and rest.Config for the workload cluster.
 // It also updates the kubeconfig with the worklaod cluster config. (TODO - this feels like a side effect, is there a better way to do this?)
-func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, workloadClusterCtxName string, authInfo *k8sclient.CluserAuthInfo) error {
+func (c *ClusterAPI) GetClusterAuthInfoForWorkloadCluster(authInfo *k8sclient.ClusterAuthInfo, name string) error {
+	// translate between this project cluster name (which is more like a role) to the name how CAPI clusters are named
+	workloadClusterName, workloadClusterCtxName, err := utils.GetCAPIClusterNameAndContext(utils.ClusterNameData{Name: name})
+	if err != nil {
+		return fmt.Errorf("error getting cluster name and context: %v", err)
+	}
+
 	getKubeconfigOptions := capiclient.GetKubeconfigOptions{
 		Namespace:           workloadClusterName,
 		WorkloadClusterName: workloadClusterName,
@@ -267,15 +280,17 @@ func (c *ClusterAPI) GetClusterAuthInfo(workloadClusterName string, workloadClus
 	authInfo.Clientset = clientset
 	authInfo.Config = restConfig
 	authInfo.ContextName = workloadClusterCtxName
+	authInfo.ClusterName = workloadClusterName
 
-	err = c.mergeKubeconfigs(workloadKubeconfig, c.kubeconfigPath)
+	err = utils.MergeKubeconfigs(workloadKubeconfig, c.kubeconfigPath)
 	if err != nil {
-		fmt.Printf("Error merging kubeconfig files: %s\n", err)
+		c.log.Error(err, "Error merging kubeconfig files")
+		return err
 	}
 	return nil
 }
 
-func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo) error {
+func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.ClusterAuthInfo) error {
 	c.log.Info("Pivoting management cluster", "fromContextName", c.clusterAuth.ContextName, "toContextName", permClusterAuth.ContextName)
 	moveOptions := capiclient.MoveOptions{
 		FromKubeconfig: capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.clusterAuth.ContextName},
@@ -289,43 +304,31 @@ func (c *ClusterAPI) PivotCluster(permClusterAuth *k8sclient.CluserAuthInfo) err
 		return err
 	}
 
-	// TODO - is there wait and/or validation needed here?
-
-	c.log.Info("Successfully pivoted Cluster API components")
-	return nil
-}
-
-// mergeKubeconfigs merges the content of srcKubeconfig into dstKubeconfigPath.
-// srcKubeconfig is a kubeconfig file in a string form
-// dstKubeconfigPath is the path to the destination kubeconfig file, which already contains other content.
-func (c *ClusterAPI) mergeKubeconfigs(srcKubeconfig, dstKubeconfigPath string) error {
-	// Load the destination kubeconfig
-	dstConfig, err := clientcmd.LoadFromFile(dstKubeconfigPath)
-	if err != nil {
-		return fmt.Errorf("failed to load destination kubeconfig: %w", err)
+	ClusterGVR := schema.GroupVersionResource{
+		Group:    "cluster.x-k8s.io",
+		Version:  "v1beta1",
+		Resource: "clusters",
 	}
 
-	// Parse the source kubeconfig from the string
-	srcConfig, err := clientcmd.Load([]byte(srcKubeconfig))
-	if err != nil {
-		return fmt.Errorf("failed to parse source kubeconfig: %w", err)
-	}
+	timeout := time.After(5 * time.Minute)
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
 
-	// Merge srcConfig into dstConfig
-	for key, value := range srcConfig.Clusters {
-		dstConfig.Clusters[key] = value
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for custom resource to be available in the target cluster")
+		case <-ticker.C:
+			// Check if the custom resource exists in the target cluster
+			exists, err := utils.ResourcesExist(permClusterAuth.Config, permClusterAuth.ClusterName, permClusterAuth.ClusterName, ClusterGVR)
+			if err != nil {
+				c.log.Error(err, "Error checking custom resource in target cluster")
+				return err
+			}
+			if exists {
+				c.log.Info("Successfully pivoted Cluster API components and custom resource is available in the target cluster")
+				return nil
+			}
+		}
 	}
-	for key, value := range srcConfig.Contexts {
-		dstConfig.Contexts[key] = value
-	}
-	for key, value := range srcConfig.AuthInfos {
-		dstConfig.AuthInfos[key] = value
-	}
-
-	// Write the merged configuration back to the destination kubeconfig file
-	if err = clientcmd.WriteToFile(*dstConfig, dstKubeconfigPath); err != nil {
-		return fmt.Errorf("failed to write merged kubeconfig: %w", err)
-	}
-
-	return nil
 }

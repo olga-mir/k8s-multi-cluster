@@ -15,7 +15,6 @@ import (
 
 var requiredVars = []string{
 	"AWS_B64ENCODED_CREDENTIALS",
-	"FLUXCD_KEY_PATH",
 }
 
 var logger = log.Log

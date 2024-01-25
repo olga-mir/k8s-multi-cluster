@@ -30,12 +30,12 @@ type FluxCD struct {
 	log           logr.Logger
 	fluxConfig    appconfig.FluxConfig
 	githubConfig  appconfig.GithubConfig
-	clusterAuth   k8sclient.CluserAuthInfo
+	clusterAuth   k8sclient.ClusterAuthInfo
 	runtimeClient runtimeclient.Client
 }
 
 // NewFluxCD creates a new FluxCD with the provided configurations
-func NewFluxCD(log logr.Logger, fluxConfig appconfig.FluxConfig, githubConfig appconfig.GithubConfig, clusterAuth *k8sclient.CluserAuthInfo) (*FluxCD, error) {
+func NewFluxCD(log logr.Logger, fluxConfig appconfig.FluxConfig, githubConfig appconfig.GithubConfig, clusterAuth *k8sclient.ClusterAuthInfo) (*FluxCD, error) {
 	// Add Flux resource to scheme to the runtime scheme. Fixes this runtime error:
 	// `failed to create GitRepository: no kind is registered for the type v1beta1.GitRepository in scheme "pkg/runtime/scheme.go:100"`
 	runtimeScheme := runtime.NewScheme()
@@ -151,6 +151,7 @@ func (f *FluxCD) createKustomization() error {
 
 func (f *FluxCD) CreateFluxSystemSecret() error {
 	f.log.Info("Creating secret for Flux")
+
 	secretData := make(map[string][]byte)
 
 	key, err := os.ReadFile(f.fluxConfig.KeyPath)
@@ -187,7 +188,6 @@ func (f *FluxCD) WaitForFluxResources() error {
 	// Define the GVRs for Flux resources
 	fluxGVRs := []schema.GroupVersionResource{
 		{Group: "source.toolkit.fluxcd.io", Version: "v1", Resource: "gitrepositories"},
-		{Group: "helm.toolkit.fluxcd.io", Version: "v2beta1", Resource: "helmreleases"}, // deprecated
 		{Group: "helm.toolkit.fluxcd.io", Version: "v2beta2", Resource: "helmreleases"},
 		{Group: "source.toolkit.fluxcd.io", Version: "v1beta2", Resource: "helmrepositories"},
 		{Group: "kustomize.toolkit.fluxcd.io", Version: "v1", Resource: "kustomizations"},
