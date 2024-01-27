@@ -1,0 +1,36 @@
+version: '3'
+
+tasks:
+  build-app:
+    cmds:
+      - go build -v ./cmd/multicluster-demo
+    desc: Build the multicluster-demo application
+    generates:
+      - multicluster-demo
+
+  run-deploy:
+    deps: [build-app]
+    cmds:
+      - ./multicluster-demo deploy --config .
+    desc: Deploys a multi-cluster setup in a cloud provider of choice by using Cluster API or CrossPlane according to specification provided in config file
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    method: checksum
+
+  run-uninstall:
+    deps: [build-app]
+    cmds:
+      - ./multicluster-demo uninstall --config .
+    desc: Uninstalls all project resources
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+
+  test:
+    cmds:
+      - go test -v ./pkg/...
+    desc: Run all tests in the pkg directory
+

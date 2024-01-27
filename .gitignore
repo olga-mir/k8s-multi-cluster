@@ -1,3 +1,5 @@
 .DS_Store
 .kubeconfig*
 .setup.env
+go/multicluster-demo
+go/.task/

@@ -18,6 +18,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.10.0
   labels:
     cluster.x-k8s.io/provider: helm
+    clusterctl.cluster.x-k8s.io/move-hierarchy: "true"
   name: helmchartproxies.addons.cluster.x-k8s.io
 spec:
   conversion:
@@ -124,6 +125,32 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
+              credentials:
+                description: Credentials is a reference to an object containing the
+                  OCI credentials. If it is not specified, no credentials will be
+                  used.
+                properties:
+                  key:
+                    description: Key is the key in the Secret containing the OCI credentials.
+                    type: string
+                  secret:
+                    description: Secret is a reference to a Secret containing the
+                      OCI credentials.
+                    properties:
+                      name:
+                        description: name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - key
+                - secret
+                type: object
               namespace:
                 description: ReleaseNamespace is the namespace the Helm release will
                   be installed on each selected Cluster. If it is not specified, it
@@ -151,6 +178,10 @@ spec:
                   disableOpenAPIValidation:
                     description: DisableOpenAPIValidation controls whether OpenAPI
                       validation is enforced.
+                    type: boolean
+                  enableClientCache:
+                    description: EnableClientCache is a flag to enable Helm client
+                      cache. If it is not specified, it will be set to true.
                     type: boolean
                   install:
                     description: Install represents CLI flags passed to Helm install
@@ -501,6 +532,32 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              credentials:
+                description: Credentials is a reference to an object containing the
+                  OCI credentials. If it is not specified, no credentials will be
+                  used.
+                properties:
+                  key:
+                    description: Key is the key in the Secret containing the OCI credentials.
+                    type: string
+                  secret:
+                    description: Secret is a reference to a Secret containing the
+                      OCI credentials.
+                    properties:
+                      name:
+                        description: name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                required:
+                - key
+                - secret
+                type: object
               namespace:
                 description: ReleaseNamespace is the namespace the Helm release will
                   be installed on the referenced Cluster. If it is not specified,
@@ -529,6 +586,10 @@ spec:
                   disableOpenAPIValidation:
                     description: DisableOpenAPIValidation controls whether OpenAPI
                       validation is enforced.
+                    type: boolean
+                  enableClientCache:
+                    description: EnableClientCache is a flag to enable Helm client
+                      cache. If it is not specified, it will be set to true.
                     type: boolean
                   install:
                     description: Install represents CLI flags passed to Helm install
@@ -1028,7 +1089,7 @@ spec:
       containers:
       - args:
         - --leader-elect
-        image: olmigar/cluster-api-helm-controller-arm64:dev
+        image: olmigar/cluster-api-helm-controller:20240120
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
