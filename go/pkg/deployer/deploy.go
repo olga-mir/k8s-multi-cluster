@@ -2,6 +2,7 @@ package deployer
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/olga-mir/k8s-multi-cluster/go/pkg/capi"
@@ -105,7 +106,9 @@ func Deploy(log logr.Logger, cfg *config.Config) error {
 		return fmt.Errorf("error creating Cluster API client: %v", err)
 	}
 
-	log.Info("Installing Cluster API on the permanent management cluster")
+	log.Info("Installing Cluster API on the permanent management cluster - TODO: adding artificail sleep of 2min")
+	time.Sleep(2 * time.Minute)
+
 	if err := mgmtCAPI.InstallClusterAPI(); err != nil {
 		return fmt.Errorf("error installing Cluster API: %v", err)
 	}
