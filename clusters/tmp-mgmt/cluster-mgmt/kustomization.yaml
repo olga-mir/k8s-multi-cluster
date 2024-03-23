@@ -3,5 +3,4 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - platform.yaml
-  - caaph-hcp-no-mesh-v1.15.2.yaml
   - capi-cluster.yaml
