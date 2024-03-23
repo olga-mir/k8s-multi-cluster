@@ -5,7 +5,7 @@ metadata:
 spec:
   clusterSelector:
     matchLabels:
-      cilium-mesh: main
+      cilium-mesh: none
   repoURL: https://helm.cilium.io/
   chartName: cilium
   namespace: cilium
