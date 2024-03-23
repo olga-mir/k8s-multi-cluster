@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo THIS IS LEGACY DEPLOYMENT WAY. NEW PROCESS IS DESCRIBED IN `go/README.md`
+
 REPO_ROOT=$(git rev-parse --show-toplevel)
 
 # User must explicitely provide their kubeconfig and accept that it can be changed by the script
