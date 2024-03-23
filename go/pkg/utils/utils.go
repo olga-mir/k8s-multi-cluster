@@ -335,3 +335,21 @@ func MergeKubeconfigs(srcKubeconfig, dstKubeconfigPath string) error {
 
 	return nil
 }
+
+func RenderTemplateToFile(inputFilePath, outputFilePath string, data interface{}) error {
+	// Parse the template from the input file
+	tmpl, err := template.ParseFiles(inputFilePath)
+	if err != nil {
+		return err
+	}
+
+	// Create the output file
+	outputFile, err := os.Create(outputFilePath)
+	if err != nil {
+		return err
+	}
+	defer outputFile.Close()
+
+	// Execute the template, substituting the data
+	return tmpl.Execute(outputFile, data)
+}
