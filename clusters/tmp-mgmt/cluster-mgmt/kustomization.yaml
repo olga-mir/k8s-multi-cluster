@@ -3,11 +3,5 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - platform.yaml
+  - caaph-hcp-no-mesh-v1.15.2.yaml
   - capi-cluster.yaml
-patches:
-- path: patch.yaml
-  target:
-    group: addons.cluster.x-k8s.io
-    version: v1alpha1
-    kind: HelmChartProxy
-    name: cilium-no-mesh

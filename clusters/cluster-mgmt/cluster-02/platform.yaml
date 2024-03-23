@@ -3,7 +3,7 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: flux-remote
-  namespace: cluster-01
+  namespace: cluster-02
 spec:
   interval: 1m
   sourceRef:
@@ -14,4 +14,4 @@ spec:
   prune: true
   kubeConfig:
     secretRef:
-      name: cluster-01-kubeconfig
+      name: cluster-02-kubeconfig

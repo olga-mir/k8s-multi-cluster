@@ -15,19 +15,3 @@ spec:
   kubeConfig:
     secretRef:
       name: cluster-mgmt-kubeconfig
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
-  name: caaph-cni
-  namespace: flux-system
-spec:
-  interval: 1m
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  path: ./k8s-platform/cni-caaph-resource/cilium/v1.15.2
-  targetNamespace: cluster-mgmt
-  prune: true
-  dependsOn:
-  - name: caaph
