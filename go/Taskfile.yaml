@@ -5,7 +5,7 @@ tasks:
     desc: Build the multicluster-demo application
 
     cmds:
-      - go build -v ./cmd/multicluster-demo
+      - go build ./cmd/multicluster-demo
     generates:
       - multicluster-demo
 
