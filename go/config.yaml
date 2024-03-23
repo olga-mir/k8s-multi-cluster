@@ -9,8 +9,7 @@ clusters:
       version: "2.2.2"
     cni:
       name: "cilium"
-      config:
-        version: "1.15.2"
+      config: "TODO"
     aws:
       sshKeyName: "aws"
       region: "ap-southeast-2"
