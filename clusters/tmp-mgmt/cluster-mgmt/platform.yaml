@@ -26,7 +26,7 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
-  path: ./k8s-platform/cni-caaph-resource/cilium/v1.12.3
+  path: ./k8s-platform/cni-caaph-resource/cilium/v1.15.2
   targetNamespace: cluster-mgmt
   prune: true
   dependsOn:
