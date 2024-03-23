@@ -52,9 +52,9 @@ spec:
     # @default -- `"~/.kube/config"`
     kubeConfigPath: ""
     # -- (string) Kubernetes service host
-    k8sServiceHost: ""
+    k8sServiceHost: {{ .Cluster.spec.controlPlaneEndpoint.host }}
     # -- (string) Kubernetes service port
-    k8sServicePort: ""
+    k8sServicePort: {{ .Cluster.spec.controlPlaneEndpoint.port }}
 
     # -- Configure the client side rate limit for the agent and operator
     #
@@ -72,7 +72,7 @@ spec:
 
     cluster:
       # -- Name of the cluster. Only required for Cluster Mesh and mutual authentication with SPIRE.
-      name: default
+      name: {{ .ControlPlane.metadata.name }}
       # -- (int) Unique ID of the cluster. Must be unique across all connected
       # clusters and in the range of 1 to 255. Only required for Cluster Mesh,
       # may be 0 if Cluster Mesh is not used.
@@ -1700,7 +1700,7 @@ spec:
       ciliumNodeUpdateRate: "15s"
       operator:
         # -- IPv4 CIDR list range to delegate to individual nodes for IPAM.
-        clusterPoolIPv4PodCIDRList: ["10.0.0.0/8"]
+        clusterPoolIPv4PodCIDRList: {{ index .Cluster.spec.clusterNetwork.pods.cidrBlocks 0 }}
         # -- IPv4 CIDR mask size to delegate to individual nodes for IPAM.
         clusterPoolIPv4MaskSize: 24
         # -- IPv6 CIDR list range to delegate to individual nodes for IPAM.
