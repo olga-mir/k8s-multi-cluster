@@ -4,4 +4,4 @@ resources:
   - namespace.yaml
   - platform.yaml
   - capi-cluster.yaml
-  - caaph-hcp-v1.15.2.yaml
+  - caaph-cni
