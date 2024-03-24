@@ -44,17 +44,17 @@ spec:
       # -- Enable creation of Resource-Based Access Control configuration.
       create: true
 
-# -- Configure image pull secrets for pulling container images
+    # -- Configure image pull secrets for pulling container images
     imagePullSecrets:
-# - name: "image-pull-secret"
+    # - name: "image-pull-secret"
 
-# -- (string) Kubernetes config path
-# @default -- `"~/.kube/config"`
+    # -- (string) Kubernetes config path
+    # @default -- `"~/.kube/config"`
     kubeConfigPath: ""
-# -- (string) Kubernetes service host
+    # -- (string) Kubernetes service host
     k8sServiceHost: {{ .Cluster.spec.controlPlaneEndpoint.host }}
 
-# -- (string) Kubernetes service port
+    # -- (string) Kubernetes service port
     k8sServicePort: {{ .Cluster.spec.controlPlaneEndpoint.port }}
 
     cluster:
@@ -65,8 +65,8 @@ spec:
       # may be 0 if Cluster Mesh is not used.
       id: 0
 
-# -- Define serviceAccount names for components.
-# @default -- Component's fully qualified name.
+    # -- Define serviceAccount names for components.
+    # @default -- Component's fully qualified name.
     serviceAccounts:
       cilium:
         create: true
@@ -107,19 +107,19 @@ spec:
         name: hubble-generate-certs
         annotations: {}
 
-# -- Configure termination grace period for cilium-agent DaemonSet.
+    # -- Configure termination grace period for cilium-agent DaemonSet.
     terminationGracePeriodSeconds: 1
 
-# -- Install the cilium agent resources.
+    # -- Install the cilium agent resources.
     agent: true
 
-# -- Agent container name.
+    # -- Agent container name.
     name: cilium
 
-# -- Roll out cilium agent pods automatically when configmap is updated.
+    # -- Roll out cilium agent pods automatically when configmap is updated.
     rollOutCiliumPods: false
 
-# -- Agent container image.
+    # -- Agent container image
     image:
       override: ~
       repository: "quay.io/cilium/cilium"
@@ -129,7 +129,7 @@ spec:
       digest: ""
       useDigest: false
 
-# -- Affinity for cilium-agent.
+    # -- Affinity for cilium-agent.
     affinity:
       podAntiAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
@@ -138,12 +138,12 @@ spec:
             matchLabels:
               k8s-app: cilium
 
-# -- Node selector for cilium-agent.
+    # -- Node selector for cilium-agent.
     nodeSelector:
       kubernetes.io/os: linux
 
-# -- Node tolerations for agent scheduling to nodes with taints
-# ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    # -- Node tolerations for agent scheduling to nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
     tolerations:
     - operator: Exists
       # - key: "key"
@@ -151,23 +151,23 @@ spec:
       #   value: "value"
       #   effect: "NoSchedule|PreferNoSchedule|NoExecute(1.6 only)"
 
-# -- The priority class to use for cilium-agent.
+    # -- The priority class to use for cilium-agent.
     priorityClassName: ""
 
-# -- DNS policy for Cilium agent pods.
-# Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+    # -- DNS policy for Cilium agent pods.
+    # Ref: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
     dnsPolicy: ""
 
-# -- Additional containers added to the cilium DaemonSet.
+    # -- Additional containers added to the cilium DaemonSet.
     extraContainers: []
 
-# -- Additional agent container arguments.
+    # -- Additional agent container arguments.
     extraArgs: []
 
-# -- Additional agent container environment variables.
+    # -- Additional agent container environment variables.
     extraEnv: []
 
-# -- Additional agent hostPath mounts.
+    # -- Additional agent hostPath mounts.
     extraHostPathMounts: []
       # - name: host-mnt-data
       #   mountPath: /host/mnt/data
@@ -176,29 +176,29 @@ spec:
       #   readOnly: true
       #   mountPropagation: HostToContainer
 
-# -- Additional agent volumes.
+    # -- Additional agent volumes.
     extraVolumes: []
 
-# -- Additional agent volumeMounts.
+    # -- Additional agent volumeMounts.
     extraVolumeMounts: []
 
-# -- extraConfig allows you to specify additional configuration parameters to be
-# included in the cilium-config configmap.
+    # -- extraConfig allows you to specify additional configuration parameters to be
+    # included in the cilium-config configmap.
     extraConfig: {}
-#  my-config-a: "1234"
-#  my-config-b: |-
-#    test 1
-#    test 2
-#    test 3
+    #  my-config-a: "1234"
+    #  my-config-b: |-
+    #    test 1
+    #    test 2
+    #    test 3
 
-# -- Annotations to be added to agent pods
+    # -- Annotations to be added to agent pods
     podAnnotations: {}
 
-# -- Labels to be added to agent pods
+    # -- Labels to be added to agent pods
     podLabels: {}
 
-# -- Agent resource limits & requests
-# ref: https://kubernetes.io/docs/user-guide/compute-resources/
+    # -- Agent resource limits & requests
+    # ref: https://kubernetes.io/docs/user-guide/compute-resources/
     resources: {}
       # limits:
       #   cpu: 4000m
@@ -289,13 +289,13 @@ spec:
           #- PERFMON
           #- BPF
 
-# -- Cilium agent update strategy
+    # -- Cilium agent update strategy
     updateStrategy:
       type: RollingUpdate
       rollingUpdate:
         maxUnavailable: 2
 
-# Configuration Values for cilium-agent
+    # Configuration Values for cilium-agent
 
     aksbyocni:
       # -- Enable AKS BYOCNI integration.
@@ -303,11 +303,11 @@ spec:
       # use Azure integration (`azure.enabled`) instead.
       enabled: false
 
-# -- Enable installation of PodCIDR routes between worker
-# nodes if worker nodes share a common L2 network segment.
+    # -- Enable installation of PodCIDR routes between worker
+    # nodes if worker nodes share a common L2 network segment.
     autoDirectNodeRoutes: false
 
-# -- Annotate k8s node upon initialization with Cilium's metadata.
+    # -- Annotate k8s node upon initialization with Cilium's metadata.
     annotateK8sNode: false
 
     azure:
@@ -327,21 +327,21 @@ spec:
       # -- Enable AlibabaCloud ENI integration
       enabled: false
 
-# -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
-# for rate-limiting traffic from individual Pods with EDT (Earliest Departure
-# Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
+    # -- Enable bandwidth manager to optimize TCP and UDP workloads and allow
+    # for rate-limiting traffic from individual Pods with EDT (Earliest Departure
+    # Time) through the "kubernetes.io/egress-bandwidth" Pod annotation.
     bandwidthManager:
       # -- Enable bandwidth manager infrastructure (also prerequirement for BBR)
       enabled: false
       # -- Activate BBR TCP congestion control for Pods
       bbr: false
 
-# -- Configure standalone NAT46/NAT64 gateway
+    # -- Configure standalone NAT46/NAT64 gateway
     nat46x64Gateway:
       # -- Enable RFC8215-prefixed translation
       enabled: false
 
-# -- Configure BGP
+    # -- Configure BGP
     bgp:
       # -- Enable BGP support inside Cilium; embeds a new ConfigMap for BGP inside
       # cilium-agent and cilium-operator
@@ -352,8 +352,8 @@ spec:
         # -- Enable announcement of node pod CIDR
         podCIDR: false
 
-# -- This feature set enables virtual BGP routers to be created via
-# CiliumBGPPeeringPolicy CRDs.
+    # -- This feature set enables virtual BGP routers to be created via
+    # CiliumBGPPeeringPolicy CRDs.
     bgpControlPlane:
       # -- Enables the BGP control plane.
       enabled: false
@@ -440,22 +440,22 @@ spec:
       # @default -- `[]`
       vlanBypass: ~
 
-# -- Clean all eBPF datapath state from the initContainer of the cilium-agent
-# DaemonSet.
-#
-# WARNING: Use with care!
+    # -- Clean all eBPF datapath state from the initContainer of the cilium-agent
+    # DaemonSet.
+    #
+    # WARNING: Use with care!
     cleanBpfState: false
 
-# -- Clean all local Cilium state from the initContainer of the cilium-agent
-# DaemonSet. Implies cleanBpfState: true.
-#
-# WARNING: Use with care!
+    # -- Clean all local Cilium state from the initContainer of the cilium-agent
+    # DaemonSet. Implies cleanBpfState: true.
+    #
+    # WARNING: Use with care!
     cleanState: false
 
-# -- Wait for KUBE-PROXY-CANARY iptables rule to appear in "wait-for-kube-proxy"
-# init container before launching cilium-agent.
-# More context can be found in the commit message of below PR
-# https://github.com/cilium/cilium/pull/20123
+    # -- Wait for KUBE-PROXY-CANARY iptables rule to appear in "wait-for-kube-proxy"
+    # init container before launching cilium-agent.
+    # More context can be found in the commit message of below PR
+    # https://github.com/cilium/cilium/pull/20123
     waitForKubeProxy: false
 
     cni:
@@ -512,12 +512,12 @@ spec:
       # inside the agent pod.
       hostConfDirMountPath: /host/etc/cni/net.d
 
-# -- (string) Configure how frequently garbage collection should occur for the datapath
-# connection tracking table.
-# @default -- `"0s"`
+    # -- (string) Configure how frequently garbage collection should occur for the datapath
+    # connection tracking table.
+    # @default -- `"0s"`
     conntrackGCInterval: ""
 
-# -- Configure container runtime specific integration.
+    # -- Configure container runtime specific integration.
     containerRuntime:
       # -- Enables specific integrations for container runtimes.
       # Supported values:
@@ -530,11 +530,11 @@ spec:
       # -- Configure the path to the container runtime control socket.
       # socketPath: /path/to/runtime.sock
 
-# -- (string) Configure timeout in which Cilium will exit if CRDs are not available
-# @default -- `"5m"`
+    # -- (string) Configure timeout in which Cilium will exit if CRDs are not available
+    # @default -- `"5m"`
     crdWaitTimeout: ""
 
-# -- Tail call hooks for custom eBPF programs.
+    # -- Tail call hooks for custom eBPF programs.
     customCalls:
       # -- Enable tail call hooks for custom eBPF programs.
       enabled: false
@@ -568,38 +568,38 @@ spec:
       # By default, all keys may be overridden.
       blockedConfigOverrides: ~
 
-# -- Specify which network interfaces can run the eBPF datapath. This means
-# that a packet sent from a pod to a destination outside the cluster will be
-# masqueraded (to an output device IPv4 address), if the output device runs the
-# program. When not specified, probing will automatically detect devices.
-# devices: ""
+    # -- Specify which network interfaces can run the eBPF datapath. This means
+    # that a packet sent from a pod to a destination outside the cluster will be
+    # masqueraded (to an output device IPv4 address), if the output device runs the
+    # program. When not specified, probing will automatically detect devices.
+    # devices: ""
 
-# -- Enables experimental support for the detection of new and removed datapath
-# devices. When devices change the eBPF datapath is reloaded and services updated.
-# If "devices" is set then only those devices, or devices matching a wildcard will
-# be considered.
+    # -- Enables experimental support for the detection of new and removed datapath
+    # devices. When devices change the eBPF datapath is reloaded and services updated.
+    # If "devices" is set then only those devices, or devices matching a wildcard will
+    # be considered.
     enableRuntimeDeviceDetection: false
 
-# -- Chains to ignore when installing feeder rules.
-# disableIptablesFeederRules: ""
+    # -- Chains to ignore when installing feeder rules.
+    # disableIptablesFeederRules: ""
 
-# -- Limit egress masquerading to interface selector.
-# egressMasqueradeInterfaces: ""
+    # -- Limit egress masquerading to interface selector.
+    # egressMasqueradeInterfaces: ""
 
-# -- Whether to enable CNP status updates.
+    # -- Whether to enable CNP status updates.
     enableCnpStatusUpdates: false
 
-# -- Configures the use of the KVStore to optimize Kubernetes event handling by
-# mirroring it into the KVstore for reduced overhead in large clusters.
+    # -- Configures the use of the KVStore to optimize Kubernetes event handling by
+    # mirroring it into the KVstore for reduced overhead in large clusters.
     enableK8sEventHandover: false
 
-# -- Enable setting identity mark for local traffic.
-# enableIdentityMark: true
+    # -- Enable setting identity mark for local traffic.
+    # enableIdentityMark: true
 
-# -- Enable Kubernetes EndpointSlice feature in Cilium if the cluster supports it.
-# enableK8sEndpointSlice: true
+    # -- Enable Kubernetes EndpointSlice feature in Cilium if the cluster supports it.
+    # enableK8sEndpointSlice: true
 
-# -- Enable CiliumEndpointSlice feature.
+    # -- Enable CiliumEndpointSlice feature.
     enableCiliumEndpointSlice: false
 
     ingressController:
@@ -666,10 +666,10 @@ spec:
         # If disabled, TLS secrets must be maintained externally.
         sync: true
 
-# -- Enables the fallback compatibility solution for when the xt_socket kernel
-# module is missing and it is needed for the datapath L7 redirection to work
-# properly. See documentation for details on when this can be disabled:
-# https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
+    # -- Enables the fallback compatibility solution for when the xt_socket kernel
+    # module is missing and it is needed for the datapath L7 redirection to work
+    # properly. See documentation for details on when this can be disabled:
+    # https://docs.cilium.io/en/stable/operations/system_requirements/#linux-kernel.
     enableXTSocketFallback: true
 
     encryption:
@@ -724,8 +724,8 @@ spec:
       # -- Enable connectivity health checking between virtual endpoints.
       enabled: true
 
-# -- Enable endpoint status.
-# Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space.
+    # -- Enable endpoint status.
+    # Status can be: policy, health, controllers, log and / or state. For 2 or more options use a space.
     endpointStatus:
       enabled: false
       status: ""
@@ -778,20 +778,20 @@ spec:
       # -- Enable ExternalIPs service support.
       enabled: false
 
-# fragmentTracking enables IPv4 fragment tracking support in the datapath.
-# fragmentTracking: true
+    # fragmentTracking enables IPv4 fragment tracking support in the datapath.
+    # fragmentTracking: true
 
     gke:
       # -- Enable Google Kubernetes Engine integration
       enabled: false
 
-# -- Enable connectivity health checking.
+    # -- Enable connectivity health checking.
     healthChecking: true
 
-# -- TCP port for the agent health API. This is not the port for cilium-health.
+    # -- TCP port for the agent health API. This is not the port for cilium-health.
     healthPort: 9879
 
-# -- Configure the host firewall.
+    # -- Configure the host firewall.
     hostFirewall:
       # -- Enables the enforcement of host policies in the eBPF datapath.
       enabled: false
@@ -800,7 +800,7 @@ spec:
       # -- Enable hostPort service support.
       enabled: false
 
-# -- Configure socket LB
+    # -- Configure socket LB
     socketLB:
       # -- Enable socket LB
       enabled: false
@@ -808,10 +808,10 @@ spec:
       # -- Disable socket lb for non-root ns. This is used to enable Istio routing rules.
       # hostNamespaceOnly: false
 
-# -- Configure certificate generation for Hubble integration.
-# If hubble.tls.auto.method=cronJob, these values are used
-# for the Kubernetes CronJob which will be scheduled regularly to
-# (re)generate any certificates not provided manually.
+    # -- Configure certificate generation for Hubble integration.
+    # If hubble.tls.auto.method=cronJob, these values are used
+    # for the Kubernetes CronJob which will be scheduled regularly to
+    # (re)generate any certificates not provided manually.
     certgen:
       image:
         override: ~
@@ -993,7 +993,7 @@ spec:
           override: ~
           repository: "quay.io/cilium/hubble-relay"
           tag: "v1.13.0"
-           # hubble-relay-digest
+          # hubble-relay-digest
           digest: ""
           useDigest: false
           pullPolicy: "IfNotPresent"
@@ -1312,22 +1312,22 @@ spec:
           #      - chart-example.local
 
 
-# -- Method to use for identity allocation (`crd` or `kvstore`).
+    # -- Method to use for identity allocation (`crd` or `kvstore`).
     identityAllocationMode: "crd"
 
-# -- (string) Time to wait before using new identity on endpoint identity change.
-# @default -- `"5s"`
+    # -- (string) Time to wait before using new identity on endpoint identity change.
+    # @default -- `"5s"`
     identityChangeGracePeriod: ""
 
-# -- Configure whether to install iptables rules to allow for TPROXY
-# (L7 proxy injection), iptables-based masquerading and compatibility
-# with kube-proxy.
+    # -- Configure whether to install iptables rules to allow for TPROXY
+    # (L7 proxy injection), iptables-based masquerading and compatibility
+    # with kube-proxy.
     installIptablesRules: true
 
-# -- Install Iptables rules to skip netfilter connection tracking on all pod
-# traffic. This option is only effective when Cilium is running in direct
-# routing and full KPR mode. Moreover, this option cannot be enabled when Cilium
-# is running in a managed Kubernetes environment or in a chained CNI setup.
+    # -- Install Iptables rules to skip netfilter connection tracking on all pod
+    # traffic. This option is only effective when Cilium is running in direct
+    # routing and full KPR mode. Moreover, this option cannot be enabled when Cilium
+    # is running in a managed Kubernetes environment or in a chained CNI setup.
     installNoConntrackIptablesRules: false
 
     ipam:
@@ -1345,7 +1345,7 @@ spec:
         # -- Deprecated in favor of ipam.operator.clusterPoolIPv6PodCIDRList.
         # IPv6 CIDR range to delegate to individual nodes for IPAM.
         clusterPoolIPv6PodCIDR: "fd00::/104"
-         # -- IPv6 CIDR list range to delegate to individual nodes for IPAM.
+        # -- IPv6 CIDR list range to delegate to individual nodes for IPAM.
         clusterPoolIPv6PodCIDRList: []
         # -- IPv6 CIDR mask size to delegate to individual nodes for IPAM.
         clusterPoolIPv6MaskSize: 120
@@ -1359,16 +1359,16 @@ spec:
         # @default -- `4.0`
         externalAPILimitQPS: ~
 
-# -- Configure the eBPF-based ip-masq-agent
+    # -- Configure the eBPF-based ip-masq-agent
     ipMasqAgent:
       enabled: false
-# the config of nonMasqueradeCIDRs
-# config:
+    # the config of nonMasqueradeCIDRs
+    # config:
       # nonMasqueradeCIDRs: []
       # masqLinkLocal: false
 
-# iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
-# iptablesLockTimeout: "5s"
+    # iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
+    # iptablesLockTimeout: "5s"
 
     ipv4:
       # -- Enable IPv4 support.
@@ -1378,7 +1378,7 @@ spec:
       # -- Enable IPv6 support.
       enabled: false
 
-# -- Configure Kubernetes specific configuration
+    # -- Configure Kubernetes specific configuration
     k8s: {}
       # -- requireIPv4PodCIDR enables waiting for Kubernetes to provide the PodCIDR
       # range via the Kubernetes node resource
@@ -1388,10 +1388,10 @@ spec:
       # range via the Kubernetes node resource
       # requireIPv6PodCIDR: false
 
-# -- Keep the deprecated selector labels when deploying Cilium DaemonSet.
+    # -- Keep the deprecated selector labels when deploying Cilium DaemonSet.
     keepDeprecatedLabels: false
 
-# -- Keep the deprecated probes when deploying Cilium DaemonSet
+    # -- Keep the deprecated probes when deploying Cilium DaemonSet
     keepDeprecatedProbes: false
 
     startupProbe:
@@ -1411,15 +1411,15 @@ spec:
       # -- interval between checks of the readiness probe
       periodSeconds: 30
 
-# -- Configure the kube-proxy replacement in Cilium BPF datapath
-# Valid options are "disabled", "partial", "strict".
-# ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
+    # -- Configure the kube-proxy replacement in Cilium BPF datapath
+    # Valid options are "disabled", "partial", "strict".
+    # ref: https://docs.cilium.io/en/stable/gettingstarted/kubeproxy-free/
     kubeProxyReplacement: "strict"
 
-# -- healthz server bind address for the kube-proxy replacement.
-# To enable set the value to '0.0.0.0:10256' for all ipv4
-# addresses and this '[::]:10256' for all ipv6 addresses.
-# By default it is disabled.
+    # -- healthz server bind address for the kube-proxy replacement.
+    # To enable set the value to '0.0.0.0:10256' for all ipv4
+    # addresses and this '[::]:10256' for all ipv6 addresses.
+    # By default it is disabled.
     kubeProxyReplacementHealthzBindAddr: ""
 
     l2NeighDiscovery:
@@ -1428,24 +1428,24 @@ spec:
       # -- Override the agent's default neighbor resolution refresh period.
       refreshPeriod: "30s"
 
-# -- Enable Layer 7 network policy.
+    # -- Enable Layer 7 network policy.
     l7Proxy: true
 
-# -- Enable Local Redirect Policy.
+    # -- Enable Local Redirect Policy.
     localRedirectPolicy: false
 
-# To include or exclude matched resources from cilium identity evaluation
-# labels: ""
+    # To include or exclude matched resources from cilium identity evaluation
+    # labels: ""
 
-# logOptions allows you to define logging options. eg:
-# logOptions:
-#   format: json
+    # logOptions allows you to define logging options. eg:
+    # logOptions:
+    #   format: json
 
-# -- Enables periodic logging of system load
+    # -- Enables periodic logging of system load
     logSystemLoad: false
 
 
-# -- Configure maglev consistent hashing
+    # -- Configure maglev consistent hashing
     maglev: {}
       # -- tableSize is the size (parameter M) for the backend table of one
       # service entry
@@ -1454,17 +1454,17 @@ spec:
       # -- hashSeed is the cluster-wide base64 encoded seed for the hashing
       # hashSeed:
 
-# -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
+    # -- Enables masquerading of IPv4 traffic leaving the node from endpoints.
     enableIPv4Masquerade: true
 
-# -- Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
+    # -- Enables IPv6 BIG TCP support which increases maximum GSO/GRO limits for nodes and pods
     enableIPv6BIGTCP: false
 
-# -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
+    # -- Enables masquerading of IPv6 traffic leaving the node from endpoints.
     enableIPv6Masquerade: true
 
-# -- Enables egress gateway to redirect and SNAT the traffic that leaves the
-# cluster.
+    # -- Enables egress gateway to redirect and SNAT the traffic that leaves the
+    # cluster.
     egressGateway:
       enabled: false
       # -- Install egress gateway IP rules and routes in order to properly steer
@@ -1472,49 +1472,49 @@ spec:
       installRoutes: false
 
     vtep:
-# -- Enables VXLAN Tunnel Endpoint (VTEP) Integration (beta) to allow
-# Cilium-managed pods to talk to third party VTEP devices over Cilium tunnel.
+    # -- Enables VXLAN Tunnel Endpoint (VTEP) Integration (beta) to allow
+    # Cilium-managed pods to talk to third party VTEP devices over Cilium tunnel.
       enabled: false
 
-# -- A space separated list of VTEP device endpoint IPs, for example "1.1.1.1  1.1.2.1"
+    # -- A space separated list of VTEP device endpoint IPs, for example "1.1.1.1  1.1.2.1"
       endpoint: ""
-# -- A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24"
+    # -- A space separated list of VTEP device CIDRs, for example "1.1.1.0/24 1.1.2.0/24"
       cidr: ""
-# -- VTEP CIDRs Mask that applies to all VTEP CIDRs, for example "255.255.255.0"
+    # -- VTEP CIDRs Mask that applies to all VTEP CIDRs, for example "255.255.255.0"
       mask: ""
-# -- A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
+    # -- A space separated list of VTEP device MAC addresses (VTEP MAC), for example "x:x:x:x:x:x  y:y:y:y:y:y:y"
       mac: ""
 
-# -- (string) Allows to explicitly specify the IPv4 CIDR for native routing.
-# When specified, Cilium assumes networking for this CIDR is preconfigured and
-# hands traffic destined for that range to the Linux network stack without
-# applying any SNAT.
-# Generally speaking, specifying a native routing CIDR implies that Cilium can
-# depend on the underlying networking stack to route packets to their
-# destination. To offer a concrete example, if Cilium is configured to use
-# direct routing and the Kubernetes CIDR is included in the native routing CIDR,
-# the user must configure the routes to reach pods, either manually or by
-# setting the auto-direct-node-routes flag.
+    # -- (string) Allows to explicitly specify the IPv4 CIDR for native routing.
+    # When specified, Cilium assumes networking for this CIDR is preconfigured and
+    # hands traffic destined for that range to the Linux network stack without
+    # applying any SNAT.
+    # Generally speaking, specifying a native routing CIDR implies that Cilium can
+    # depend on the underlying networking stack to route packets to their
+    # destination. To offer a concrete example, if Cilium is configured to use
+    # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
+    # the user must configure the routes to reach pods, either manually or by
+    # setting the auto-direct-node-routes flag.
     ipv4NativeRoutingCIDR: ""
 
-# -- (string) Allows to explicitly specify the IPv6 CIDR for native routing.
-# When specified, Cilium assumes networking for this CIDR is preconfigured and
-# hands traffic destined for that range to the Linux network stack without
-# applying any SNAT.
-# Generally speaking, specifying a native routing CIDR implies that Cilium can
-# depend on the underlying networking stack to route packets to their
-# destination. To offer a concrete example, if Cilium is configured to use
-# direct routing and the Kubernetes CIDR is included in the native routing CIDR,
-# the user must configure the routes to reach pods, either manually or by
-# setting the auto-direct-node-routes flag.
+    # -- (string) Allows to explicitly specify the IPv6 CIDR for native routing.
+    # When specified, Cilium assumes networking for this CIDR is preconfigured and
+    # hands traffic destined for that range to the Linux network stack without
+    # applying any SNAT.
+    # Generally speaking, specifying a native routing CIDR implies that Cilium can
+    # depend on the underlying networking stack to route packets to their
+    # destination. To offer a concrete example, if Cilium is configured to use
+    # direct routing and the Kubernetes CIDR is included in the native routing CIDR,
+    # the user must configure the routes to reach pods, either manually or by
+    # setting the auto-direct-node-routes flag.
     ipv6NativeRoutingCIDR: ""
 
-# -- cilium-monitor sidecar.
+    # -- cilium-monitor sidecar.
     monitor:
       # -- Enable the cilium-monitor sidecar.
       enabled: false
 
-# -- Configure service load balancing
+    # -- Configure service load balancing
     loadBalancer:
       # -- standalone enables the standalone L4LB which does not connect to
       # kube-apiserver.
@@ -1561,7 +1561,7 @@ spec:
         # Applicable values: round_robin, least_request, random
         algorithm: round_robin
 
-# -- Configure N-S k8s service loadbalancing
+    # -- Configure N-S k8s service loadbalancing
     nodePort:
       # -- Enable the Cilium NodePort service implementation.
       enabled: false
@@ -1579,11 +1579,11 @@ spec:
       # -- Enable healthcheck nodePort server for NodePort services
       enableHealthCheck: true
 
-# policyAuditMode: false
+    # policyAuditMode: false
 
-# -- The agent can be put into one of the three policy enforcement modes:
-# default, always and never.
-# ref: https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes
+    # -- The agent can be put into one of the three policy enforcement modes:
+    # default, always and never.
+    # ref: https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes
     policyEnforcementMode: "default"
 
     pprof:
@@ -1594,7 +1594,7 @@ spec:
       # -- Configure pprof listen port for cilium-agent
       port: 6060
 
-# -- Configure prometheus metrics on the configured port at /metrics
+    # -- Configure prometheus metrics on the configured port at /metrics
     prometheus:
       enabled: false
       port: 9962
@@ -1625,7 +1625,7 @@ spec:
       # ref: https://docs.cilium.io/en/stable/operations/metrics/#exported-metrics
       metrics: ~
 
-# -- Configure Istio proxy options.
+    # -- Configure Istio proxy options.
     proxy:
       prometheus:
         enabled: true
@@ -1634,11 +1634,11 @@ spec:
       # container image names
       sidecarImageRegex: "cilium/istio_proxy"
 
-# -- Enable use of the remote node identity.
-# ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity
+    # -- Enable use of the remote node identity.
+    # ref: https://docs.cilium.io/en/v1.7/install/upgrade/#configmap-remote-node-identity
     remoteNodeIdentity: true
 
-# -- Enable resource quotas for priority classes used in the cluster.
+    # -- Enable resource quotas for priority classes used in the cluster.
     resourceQuotas:
       enabled: false
       cilium:
@@ -1650,27 +1650,27 @@ spec:
           # 15 "clusterwide" Cilium Operator pods for HA
           pods: "15"
 
-# Need to document default
-##################
-#sessionAffinity: false
+    # Need to document default
+    ##################
+    #sessionAffinity: false
 
-# -- Do not run Cilium agent when running with clean mode. Useful to completely
-# uninstall Cilium as it will stop Cilium from starting and create artifacts
-# in the node.
+    # -- Do not run Cilium agent when running with clean mode. Useful to completely
+    # uninstall Cilium as it will stop Cilium from starting and create artifacts
+    # in the node.
     sleepAfterInit: false
 
-# -- Configure BPF socket operations configuration
+    # -- Configure BPF socket operations configuration
     sockops:
       # enabled enables installation of socket options acceleration.
       enabled: false
 
-# -- Enable check of service source ranges (currently, only for LoadBalancer).
+    # -- Enable check of service source ranges (currently, only for LoadBalancer).
     svcSourceRangeCheck: true
 
-# -- Synchronize Kubernetes nodes to kvstore and perform CNP GC.
+    # -- Synchronize Kubernetes nodes to kvstore and perform CNP GC.
     synchronizeK8sNodes: true
 
-# -- Configure TLS configuration in the agent.
+    # -- Configure TLS configuration in the agent.
     tls:
       # -- This configures how the Cilium agent loads the secrets used TLS-aware CiliumNetworkPolicies
       # (namely the secrets referenced by terminatingTLS and originatingTLS).
@@ -1693,21 +1693,21 @@ spec:
         # -- Generated certificates validity duration in days. This will be used for auto generated CA.
         certValidityDuration: 1095
 
-# -- Configure the encapsulation configuration for communication between nodes.
-# Possible values:
-#   - disabled
-#   - vxlan (default)
-#   - geneve
+    # -- Configure the encapsulation configuration for communication between nodes.
+    # Possible values:
+    #   - disabled
+    #   - vxlan (default)
+    #   - geneve
     tunnel: "vxlan"
 
-# -- Configure VXLAN and Geneve tunnel port.
-# @default -- Port 8472 for VXLAN, Port 6081 for Geneve
+    # -- Configure VXLAN and Geneve tunnel port.
+    # @default -- Port 8472 for VXLAN, Port 6081 for Geneve
     tunnelPort: 0
 
-# -- Configure the underlying network MTU to overwrite auto-detected MTU.
+    # -- Configure the underlying network MTU to overwrite auto-detected MTU.
     MTU: 0
 
-# -- Disable the usage of CiliumEndpoint CRD.
+    # -- Disable the usage of CiliumEndpoint CRD.
     disableEndpointCRD: "false"
 
     wellKnownIdentities:
@@ -2164,16 +2164,16 @@ spec:
       # cluster with the right schema.
       validateCNPs: true
 
-# -- Explicitly enable or disable priority class.
-# .Capabilities.KubeVersion is unsettable in `helm template` calls,
-# it depends on k8s libraries version that Helm was compiled against.
-# This option allows to explicitly disable setting the priority class, which
-# is useful for rendering charts for gke clusters in advance.
+    # -- Explicitly enable or disable priority class.
+    # .Capabilities.KubeVersion is unsettable in `helm template` calls,
+    # it depends on k8s libraries version that Helm was compiled against.
+    # This option allows to explicitly disable setting the priority class, which
+    # is useful for rendering charts for gke clusters in advance.
     enableCriticalPriorityClass: true
 
-# disableEnvoyVersionCheck removes the check for Envoy, which can be useful
-# on AArch64 as the images do not currently ship a version of Envoy.
-#disableEnvoyVersionCheck: false
+    # disableEnvoyVersionCheck removes the check for Envoy, which can be useful
+    # on AArch64 as the images do not currently ship a version of Envoy.
+    #disableEnvoyVersionCheck: false
 
     clustermesh:
       # -- Deploy clustermesh-apiserver for clustermesh
@@ -2404,12 +2404,12 @@ spec:
             cert: ""
             key: ""
 
-# -- Configure external workloads support
+    # -- Configure external workloads support
     externalWorkloads:
       # -- Enable support for external workloads, such as VMs (false by default).
       enabled: false
 
-# -- Configure cgroup related configuration
+    # -- Configure cgroup related configuration
     cgroup:
       autoMount:
         # -- Enable auto mount of cgroup2 filesystem.
@@ -2430,15 +2430,15 @@ spec:
       # -- Configure cgroup root where cgroup2 filesystem is mounted on the host (see also: `cgroup.autoMount`)
       hostRoot: /run/cilium/cgroupv2
 
-# -- Configure whether to enable auto detect of terminating state for endpoints
-# in order to support graceful termination.
+    # -- Configure whether to enable auto detect of terminating state for endpoints
+    # in order to support graceful termination.
     enableK8sTerminatingEndpoint: true
 
-# -- Configure whether to unload DNS policy rules on graceful shutdown
-# dnsPolicyUnloadOnShutdown: false
+    # -- Configure whether to unload DNS policy rules on graceful shutdown
+    # dnsPolicyUnloadOnShutdown: false
 
-# -- Configure the key of the taint indicating that Cilium is not ready on the node.
-# When set to a value starting with `ignore-taint.cluster-autoscaler.kubernetes.io/`, the Cluster Autoscaler will ignore the taint on its decisions, allowing the cluster to scale up.
+    # -- Configure the key of the taint indicating that Cilium is not ready on the node.
+    # When set to a value starting with `ignore-taint.cluster-autoscaler.kubernetes.io/`, the Cluster Autoscaler will ignore the taint on its decisions, allowing the cluster to scale up.
     agentNotReadyTaintKey: "node.cilium.io/agent-not-ready"
 
     dnsProxy:
@@ -2461,7 +2461,7 @@ spec:
       # -- The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.
       proxyResponseMaxDelay: 100ms
 
-# -- SCTP Configuration Values
+    # -- SCTP Configuration Values
     sctp:
       # -- Enable SCTP support. NOTE: Currently, SCTP support does not support rewriting ports or multihoming.
       enabled: false
