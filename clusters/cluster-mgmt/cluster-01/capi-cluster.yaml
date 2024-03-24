@@ -7,7 +7,7 @@ metadata:
   labels:
     cluster.x-k8s.io/cluster-name: "cluster-01"
     cilium-mesh: "main"
-    cilium-mesh-index: 1
+    cilium-mesh-index: "1"
 spec:
   clusterNetwork:
     pods:
