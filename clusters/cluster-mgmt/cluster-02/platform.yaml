@@ -15,3 +15,20 @@ spec:
   kubeConfig:
     secretRef:
       name: cluster-02-kubeconfig
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: caaph-cni
+  namespace: flux-system
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  path: ./clusters/cluster-mgmt/cluster-02/caaph-cni
+  targetNamespace: cluster-02
+  prune: true
+  dependsOn:
+  - name: caaph
+    namespace: flux-system

@@ -4,4 +4,3 @@ resources:
   - namespace.yaml
   - platform.yaml
   - capi-cluster.yaml
-  - caaph-cni
