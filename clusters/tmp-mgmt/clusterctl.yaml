@@ -23,6 +23,7 @@ providers:
 #     url: "https://github.com/kubernetes-sigs/cluster-api-provider-aws/releases/v2.3.1/"
 #     file: "infrastructure-components.yaml"
 
+# TODO - see note in ./clusters/cluster-mgmt/clusterctl.yaml
 variables:
   CLUSTER_NAME: "cluster-mgmt"
   KUBERNETES_VERSION: "1.28.4"
@@ -32,4 +33,4 @@ variables:
   AWS_NODE_MACHINE_TYPE: "t3.medium"
   CONTROL_PLANE_MACHINE_COUNT: "1"
   WORKER_MACHINE_COUNT: "1"
-  POD_CIDR: "192.168.16.0/20"
+  POD_CIDR: "192.168.0.0/20"

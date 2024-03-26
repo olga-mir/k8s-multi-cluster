@@ -10,7 +10,7 @@ spec:
     kind: GitRepository
     name: flux-system
     namespace: flux-system
-  path: ./k8s-platform/flux/v2.1.1
+  path: ./k8s-platform/flux/v2.2.2
   prune: true
   kubeConfig:
     secretRef:
@@ -20,14 +20,13 @@ apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: caaph-cni
-  namespace: cluster-01
+  namespace: flux-system
 spec:
   interval: 1m
   sourceRef:
     kind: GitRepository
     name: flux-system
-    namespace: flux-system
-  path: ./k8s-platform/cni-caaph-resource/cilium/v1.12.3
+  path: ./clusters/cluster-mgmt/cluster-01/caaph-cni
   targetNamespace: cluster-01
   prune: true
   dependsOn:

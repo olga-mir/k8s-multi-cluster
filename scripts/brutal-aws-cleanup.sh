@@ -150,18 +150,18 @@ release_ips() {
 }
 
 retry() {
-  local n=1
+  local count=1
   local max=5
   local delay=10
   set +e
   while true; do
     "$@" && break || {
-      if [[ $n -lt $max ]]; then
-        ((n++))
-        echo "Command failed. Attempt $n/$max:"
+      if [[ $count -lt $max ]]; then
+        ((count++))
+        echo "Command failed. Attempt $count/$max:"
         sleep $delay;
       else
-        echo "The command has failed after $n attempts."
+        echo "The command has failed after $count attempts."
         return 1
       fi
     }

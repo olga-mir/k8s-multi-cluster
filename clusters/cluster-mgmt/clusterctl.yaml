@@ -23,6 +23,9 @@ providers:
 #     url: "https://github.com/kubernetes-sigs/cluster-api-provider-aws/releases/v2.3.1/"
 #     file: "infrastructure-components.yaml"
 
+# TODO - these settings are already rendered and (from capi pov) are hardcoded in the repo.
+# Is this true and is this the best way to do it?
+
 variables:
   CLUSTER_NAME: "cluster-mgmt"
   KUBERNETES_VERSION: "1.28.4"

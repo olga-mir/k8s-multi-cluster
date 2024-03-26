@@ -85,6 +85,7 @@ func (c *ClusterAPI) InstallClusterAPI() error {
 		Kubeconfig:              capiclient.Kubeconfig{Path: c.kubeconfigPath, Context: c.clusterAuth.ContextName},
 		InfrastructureProviders: []string{"aws:v2.3.1"}, // TODO - there is a bug in CAPI init file. infra provider has to be specified explicitely
 	}
+	c.log.Info("Initializing Cluster API", "cluster", c.clusterAuth.ClusterName, "initoptions", initOptions)
 
 	// Install Cluster API components on this cluster.
 	if _, err := c.clusterctlClient.Init(context.TODO(), initOptions); err != nil {

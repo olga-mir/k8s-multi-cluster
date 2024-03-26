@@ -29,6 +29,22 @@ clusters:
       sshKeyName: "aws"
       region: "us-west-2"
 
+  - name: "cluster-02"
+    provider: "aws"
+    kubernetesVersion: "1.28.5"
+    podCIDR: "192.168.48.0/20"
+    managementCluster: "cluster-mgmt"
+    flux:
+      keyPath: "$HOME/.ssh/flux-github-key-2"
+      version: "2.2.2"
+    cni:
+      name: "cilium"
+      config: "TODO"
+    aws:
+      sshKeyName: "aws"
+      region: "us-west-2"
+
+
 github:
   user: "olga-mir"
   branch: "develop"
@@ -38,8 +54,10 @@ github:
 kubeconfigPath: "$HOME/.kube/config"
 
 
-# following ranges
-# 192.168.32.0/20
+# podCIDR ranges
+# 192.168.0.0/20  - cluster-mgmt
+# 192.168.16.0/20 - cluster-01
+# 192.168.32.0/20 - cluster-02
 # 192.168.48.0/20
 # 192.168.64.0/20
 # 192.168.80.0/20

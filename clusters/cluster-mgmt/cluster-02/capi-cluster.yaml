@@ -2,31 +2,31 @@
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
-  name: "cluster-01"
-  namespace: "cluster-01"
+  name: "cluster-02"
+  namespace: "cluster-02"
   labels:
-    cluster.x-k8s.io/cluster-name: "cluster-01"
+    cluster.x-k8s.io/cluster-name: "cluster-02"
     cilium-mesh: "main"
-    cilium-mesh-index: "1"
+    cilium-mesh-index: 2
 spec:
   clusterNetwork:
     pods:
       cidrBlocks:
-      - "192.168.16.0/20"
+      - "192.168.32.0/20"
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
     kind: AWSCluster
-    name: "cluster-01"
+    name: "cluster-02"
   controlPlaneRef:
     kind: KubeadmControlPlane
     apiVersion: controlplane.cluster.x-k8s.io/v1beta1
-    name: "cluster-01-control-plane"
+    name: "cluster-02-control-plane"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSCluster
 metadata:
-  name: "cluster-01"
-  namespace: "cluster-01"
+  name: "cluster-02"
+  namespace: "cluster-02"
 spec:
   region: "ap-southeast-2"
   sshKeyName: "aws"
@@ -47,15 +47,15 @@ spec:
 kind: KubeadmControlPlane
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 metadata:
-  name: "cluster-01-control-plane"
-  namespace: "cluster-01"
+  name: "cluster-02-control-plane"
+  namespace: "cluster-02"
 spec:
   replicas: 1
   machineTemplate:
     infrastructureRef:
       kind: AWSMachineTemplate
       apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
-      name: "cluster-01-control-plane"
+      name: "cluster-02-control-plane"
   kubeadmConfigSpec:
     initConfiguration:
       nodeRegistration:
@@ -81,8 +81,8 @@ spec:
 kind: AWSMachineTemplate
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 metadata:
-  name: "cluster-01-control-plane"
-  namespace: "cluster-01"
+  name: "cluster-02-control-plane"
+  namespace: "cluster-02"
 spec:
   template:
     spec:
@@ -93,32 +93,32 @@ spec:
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: MachineDeployment
 metadata:
-  name: "cluster-01-md-0"
-  namespace: "cluster-01"
+  name: "cluster-02-md-0"
+  namespace: "cluster-02"
 spec:
-  clusterName: "cluster-01"
+  clusterName: "cluster-02"
   replicas: 1
   selector:
     matchLabels:
   template:
     spec:
-      clusterName: "cluster-01"
+      clusterName: "cluster-02"
       version: "1.25.4"
       bootstrap:
         configRef:
-          name: "cluster-01-md-0"
+          name: "cluster-02-md-0"
           apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
           kind: KubeadmConfigTemplate
       infrastructureRef:
-        name: "cluster-01-md-0"
+        name: "cluster-02-md-0"
         apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
         kind: AWSMachineTemplate
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1beta1
 kind: AWSMachineTemplate
 metadata:
-  name: "cluster-01-md-0"
-  namespace: "cluster-01"
+  name: "cluster-02-md-0"
+  namespace: "cluster-02"
 spec:
   template:
     spec:
@@ -129,8 +129,8 @@ spec:
 apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
 kind: KubeadmConfigTemplate
 metadata:
-  name: "cluster-01-md-0"
-  namespace: "cluster-01"
+  name: "cluster-02-md-0"
+  namespace: "cluster-02"
 spec:
   template:
     spec:
