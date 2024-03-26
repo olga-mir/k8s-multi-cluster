@@ -3385,7 +3385,7 @@ spec:
         # Settings for SPIRE
         spire:
           # -- Enable SPIRE integration (beta)
-          enabled: false
+          enabled: true
           # -- Annotations to be added to all top-level spire objects (resources under templates/spire)
           annotations: {}
           # Settings to control the SPIRE installation and configuration
